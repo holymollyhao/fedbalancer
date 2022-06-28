@@ -1,9 +1,11 @@
 package flwr.android_client;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
 import android.icu.text.SimpleDateFormat;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,6 +35,7 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,6 +69,10 @@ public class MainActivity extends AppCompatActivity {
     private ManagedChannel channel;
     public FlowerClient fc;
     private static String TAG = "Flower";
+
+    // for downloadmanager
+    private DownloadManager mDownloadManager;
+    private Long mDownloadQueueId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -162,18 +169,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void download_data_from_chris(){
-        FileOutputStream outputStream;
-        String filename = "myfile";
-        String string = "Hello world!";
+        File file = new File(getExternalFilesDir(null), "data.zip");
+        String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
 
-        try {
-            ant.mkdir();
-            outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
-            outputStream.write(string.getBytes());
-            outputStream.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        DownloadManager.Request request;
+        request = new DownloadManager.Request(Uri.parse(youtubeUrl))
+                .setTitle("Downloading data from chris server")
+                .setDescription("Downloading data.zip")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                .setDestinationUri(Uri.fromFile(file))
+                .setRequiresCharging(false)
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true);
+
+        mDownloadQueueId = mDownloadManager.enqueue(request);
+        Log.d(TAG, "path : " + file.getPath());
     }
 
     public void connect(View view) {
