@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.os.ConditionVariable;
+import android.os.Environment;
 import android.util.Log;
 import android.util.Pair;
 
@@ -15,6 +16,8 @@ import com.google.common.primitives.Floats;
 import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -228,15 +231,19 @@ public class FlowerClient {
         }
     }
 
-    public void loadData(int device_id) {
+    public void loadData(int device_id, String path) {
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(this.context.getAssets().open("data/user" + (device_id - 1) + "_train.txt")));
+            File file = new File(path, "data/user" + (device_id - 1) + "_train.txt");
+            FileInputStream fileInputStream = new FileInputStream(file);
+//            BufferedReader reader = new BufferedReader(new InputStreamReader(this.context.getAssets().open("data/user" + (device_id - 1) + "_train.txt")));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(fileInputStream));
+
             String line;
             int i = 0;
             while ((line = reader.readLine()) != null) {
                 i++;
                 Log.e(TAG, i+"th training sample loaded");
-                addSample_UCIHAR("data/" + line, true, i - 1);
+                addSample_UCIHAR(path, "data/" + line, true, i - 1);
             }
             reader.close();
             FedBalancerSingleton.getInstance().setSamplesCount(i);
@@ -245,11 +252,13 @@ public class FlowerClient {
         }
     }
 
-    private void addSample_UCIHAR(String samplePath, Boolean isTraining, int sampleIndex) throws IOException {
+    private void addSample_UCIHAR(String rootPath, String samplePath, Boolean isTraining, int sampleIndex) throws IOException {
         String sampleClass = get_class_UCIHAR(samplePath);
         float[] sample;
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(this.context.getAssets().open(samplePath)));
+//            BufferedReader reader = new BufferedReader(new InputStreamReader(this.context.getAssets().open(samplePath)));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(rootPath, samplePath))));
+
             String line = reader.readLine();
             double[] sample_in_double = Arrays.stream(line.split(",")).mapToDouble(Double::parseDouble).toArray();
             sample = Floats.toArray(Doubles.asList(sample_in_double));

@@ -293,6 +293,7 @@ public final class TransferLearningModel implements Closeable {
   public Future<Void> addSample_UCIHAR(float[] sample, String className, Boolean isTraining, int sampleIndex) {
     checkNotTerminating();
 
+    System.out.println(classes);
     if (!classes.containsKey(className)) {
       throw new IllegalArgumentException(String.format(
               "Class \"%s\" is not one of the classes recognized by the model", className));

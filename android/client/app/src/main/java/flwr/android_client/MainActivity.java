@@ -2,15 +2,16 @@ package flwr.android_client;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.icu.text.SimpleDateFormat;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Handler;
@@ -35,22 +36,21 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import javax.net.ssl.HttpsURLConnection;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean is_latency_sampling;
 
+    private Button downloadDataButton;
     private Button loadDataButton;
     private Button connectButton;
     private Button connectSampleLatencyButton;
@@ -103,11 +104,15 @@ public class MainActivity extends AppCompatActivity {
         ip = (EditText) findViewById(R.id.serverIP);
         port = (EditText) findViewById(R.id.serverPort);
 
+        downloadDataButton = (Button) findViewById(R.id.download_data);
         loadDataButton = (Button) findViewById(R.id.load_data) ;
         connectButton = (Button) findViewById(R.id.connect);
         connectSampleLatencyButton = (Button) findViewById(R.id.connect_samplelatency);
         trainButton = (Button) findViewById(R.id.trainFederated);
 
+        mDownloadManager = (DownloadManager)getSystemService(Context.DOWNLOAD_SERVICE);
+
+        loadDataButton.setEnabled(false);
 //        runOnUiThread(new Runnable(){
 //            @Override public void run() {
 //                device_id.setText(Integer.toString(1));
@@ -117,6 +122,19 @@ public class MainActivity extends AppCompatActivity {
         Log.e(TAG, Build.MODEL);
 
         fc = new FlowerClient(this);
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        IntentFilter completeFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        registerReceiver(onCompleteHandler, completeFilter);
+    }
+
+    @Override
+    public void onPause(){
+        super.onPause();
+        unregisterReceiver(onCompleteHandler);
     }
 
     public static void hideKeyboard(Activity activity) {
@@ -155,11 +173,12 @@ public class MainActivity extends AppCompatActivity {
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
+//                    download_data_from_chris();
                     if ((Integer.parseInt(device_id.getText().toString()) == 13) || (Integer.parseInt(device_id.getText().toString()) == 16) || (Integer.parseInt(device_id.getText().toString()) == 17) || (Integer.parseInt(device_id.getText().toString()) == 21)) {
                         FedBalancerSingleton.getInstance().setIsBigClient(true);
                     }
-
-                    fc.loadData(Integer.parseInt(device_id.getText().toString()));
+                    String datapath = "/storage/emulated/0/Android/data/flwr.android_client/files/";
+                    fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
                     setResultText("Training dataset is loaded in memory.");
                     connectButton.setEnabled(true);
                     connectSampleLatencyButton.setEnabled(true);
@@ -168,22 +187,87 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void download_data_from_chris(){
-        File file = new File(getExternalFilesDir(null), "data.zip");
-        String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
+    public void downloadData(View view){
+        new DownloadTask(mDownloadManager, this).execute();
+//        File file = new File(getExternalFilesDir(null), "data.zip");
+//        String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
+//
+//        DownloadManager.Request request;
+//        request = new DownloadManager.Request(Uri.parse(youtubeUrl))
+//                .setTitle("Downloading data from chris server")
+//                .setDescription("Downloading data.zip")
+//                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+//                .setDestinationUri(Uri.fromFile(file))
+//                .setRequiresCharging(false)
+//                .setAllowedOverMetered(true)
+//                .setAllowedOverRoaming(true);
+//        if (! file.exists()){
+//            mDownloadQueueId = mDownloadManager.enqueue(request);
+//            setResultText("Downloading on path : " + file.getPath());
+//        }else{
+//            setResultText("Already downloaded on path :" + file.getPath());
+//            unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
+//
+//        }
+    }
 
-        DownloadManager.Request request;
-        request = new DownloadManager.Request(Uri.parse(youtubeUrl))
-                .setTitle("Downloading data from chris server")
-                .setDescription("Downloading data.zip")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                .setDestinationUri(Uri.fromFile(file))
-                .setRequiresCharging(false)
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true);
 
-        mDownloadQueueId = mDownloadManager.enqueue(request);
-        Log.d(TAG, "path : " + file.getPath());
+    private BroadcastReceiver onCompleteHandler = new BroadcastReceiver(){
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            setResultText("Download data has completed");
+            unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
+
+        }
+
+    };
+
+    // https://stackoverflow.com/questions/3382996/how-to-unzip-files-programmatically-in-android
+    private boolean unpackZip(String path, String zipname)
+    {
+        File file = new File(path + zipname);
+        if(!file.exists()){
+            InputStream is;
+            ZipInputStream zis;
+            try
+            {
+                String filename;
+                is = new FileInputStream(path + zipname);
+                zis = new ZipInputStream(new BufferedInputStream(is));
+                ZipEntry ze;
+                byte[] buffer = new byte[1024];
+                int count;
+                while ((ze = zis.getNextEntry()) != null)
+                {
+                    filename = ze.getName();
+                    // Need to create directories if not exists, or
+                    // it will generate an Exception...
+                    if (ze.isDirectory()) {
+                        File fmd = new File(path + filename);
+                        fmd.mkdirs();
+                        continue;
+                    }
+                    FileOutputStream fout = new FileOutputStream(path + filename);
+                    while ((count = zis.read(buffer)) != -1)
+                    {
+                        fout.write(buffer, 0, count);
+                    }
+                    fout.close();
+                    zis.closeEntry();
+                }
+                zis.close();
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+                return false;
+            }
+            setResultText("Unzipping download complete");
+        }else{
+            setResultText("Unzipped file already exists!");
+        }
+        return true;
     }
 
     public void connect(View view) {
@@ -265,6 +349,65 @@ public class MainActivity extends AppCompatActivity {
             }
             activity.setResultText(result);
             activity.trainButton.setEnabled(false);
+        }
+    }
+
+    private static class DownloadTask extends AsyncTask<Void, Void, String> {
+        private final DownloadManager downloadManager;
+        private final MainActivity activityReference;
+//        private final Long downloadQueueId;
+
+        DownloadTask(DownloadManager downloadManager, MainActivity activity) {
+            this.downloadManager = downloadManager;
+//            this.downloadQueueId = downloadQueueId;
+            this.activityReference = activity;
+        }
+
+        @Override
+        protected String doInBackground(Void... nothing) {
+            MainActivity activity = activityReference;
+
+            try {
+                File file = new File(activity.getExternalFilesDir(null), "data.zip");
+                // TODO: hard coding fix
+                String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
+
+                DownloadManager.Request request;
+                request = new DownloadManager.Request(Uri.parse(youtubeUrl))
+                        .setTitle("Downloading data from chris server")
+                        .setDescription("Downloading data.zip")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                        .setDestinationUri(Uri.fromFile(file))
+                        .setRequiresCharging(false)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true);
+                if (! file.exists()){
+                    downloadManager.enqueue(request);
+                    activity.setResultText("Downloading on path : " + file.getPath());
+                }else{
+                    activity.setResultText("Already downloaded on path :" + file.getPath());
+                    activity.unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
+
+                }
+                return "Download successful \n";
+            } catch (Exception e) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                pw.flush();
+                return "Failed to download \n" + sw;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            MainActivity activity = activityReference;
+            if (activity == null) {
+                return;
+            }
+            activity.setResultText(result);
+            activity.loadDataButton.setEnabled(true);
+            activity.downloadDataButton.setEnabled(false);
         }
     }
 

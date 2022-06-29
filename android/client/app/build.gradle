@@ -124,9 +124,9 @@ task downloadModelAndData(type: DefaultTask) {
         ant.unzip(src: modelArchivePath, dest: modelTargetLocation)
         ant.delete(file: modelArchivePath)
 
-        ant.get(src: dataUrl, dest: dataArchivePath)
-        ant.unzip(src: dataArchivePath, dest: dataTargetLocation)
-        ant.delete(file: dataArchivePath)
+//        ant.get(src: dataUrl, dest: dataArchivePath)
+//        ant.unzip(src: dataArchivePath, dest: dataTargetLocation)
+//        ant.delete(file: dataArchivePath)
 
     }
 }

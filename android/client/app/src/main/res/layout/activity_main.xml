@@ -42,6 +42,17 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
+
+        <Button
+            android:id="@+id/download_data"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="5sp"
+            android:backgroundTint="#9DE1EA"
+            android:onClick="downloadData"
+            android:text="downlaod Data" />
+
         <Button
             android:id="@+id/load_data"
             android:layout_width="wrap_content"
