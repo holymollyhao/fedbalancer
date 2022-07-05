@@ -233,6 +233,7 @@ public class FlowerClient {
 
     public void loadData(int device_id, String path) {
         try {
+
             File file = new File(path, "data/user" + (device_id - 1) + "_train.txt");
             FileInputStream fileInputStream = new FileInputStream(file);
 //            BufferedReader reader = new BufferedReader(new InputStreamReader(this.context.getAssets().open("data/user" + (device_id - 1) + "_train.txt")));
@@ -264,6 +265,7 @@ public class FlowerClient {
             sample = Floats.toArray(Doubles.asList(sample_in_double));
 
             this.tlModel.addSample_UCIHAR(sample, sampleClass, isTraining, sampleIndex);
+            Log.e(TAG, "Loaded!!");
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -35,7 +35,7 @@ def convert_to_tflite(model:str):
             [
                 tf.keras.Input(shape=(1152)),
                 tf.keras.layers.Reshape((128, 9)),
-                tf.keras.layers.Conv1D(192, 16, activation="relu", padding="same"),
+                tf.keras.layers.Conv1D(filters=192, kernel_size=16, activation="relu", padding="same"),
                 tf.keras.layers.MaxPooling1D(pool_size=4),
                 tf.keras.layers.Flatten(),
                 tf.keras.layers.Dense(units=256, activation="relu"),
@@ -73,7 +73,7 @@ def convert_to_tflite(model:str):
         """
         head = tf.keras.Sequential(
             [
-                tf.keras.Input(shape=(28, 28, 1)),
+                tf.keras.Input(shape=(784)),
                 tf.keras.layers.Reshape((28, 28, 1)),
                 tf.keras.layers.Conv2D(
                     filters=32,
@@ -105,7 +105,7 @@ def convert_to_tflite(model:str):
         head.compile(loss="categorical_crossentropy", optimizer="sgd")
         print("\n\n\n\n\n\nthisisit\n\n\n\n\n\n\n")
 
-        base_path = bases.saved_model_base.SavedModelBase("identity_model_femnist")
+        base_path = bases.saved_model_base.SavedModelBase("identity_model")
         # TODO: default values from default.cfg
         converter = TFLiteTransferConverter(
             64, base_path, heads.KerasModelHead(head), optimizers.SGD(1e-2), train_batch_size=10
@@ -113,7 +113,7 @@ def convert_to_tflite(model:str):
 
         print("\n\n\n\n\n\nthisisit\n\n\n\n\n\n\n")
 
-        converter.convert_and_save("tflite_model_femnist")
+        converter.convert_and_save("tflite_model")
 
     print("\n\n\n\n\n\nconversion and save done\n\n\n\n\n\n\n")
 

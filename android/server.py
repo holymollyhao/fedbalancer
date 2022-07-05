@@ -16,14 +16,26 @@ def main() -> None:
     # Create strategy
 
     # WHEN MODEL = CNN and INPUT SIZE = 128 * 9
-    inputs = tf.keras.Input(shape=(1152,), name="digits")
-    x = tf.keras.layers.Reshape((128,9))(inputs)
-    x = tf.keras.layers.Conv1D(192, 16, activation="relu", padding="same")(x)
-    x = tf.keras.layers.MaxPooling1D(pool_size=4)(x)
-    x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(units=256, activation="relu")(x)
+    # inputs = tf.keras.Input(shape=(1152,), name="digits")
+    # x = tf.keras.layers.Reshape((128,9))(inputs)
+    # x = tf.keras.layers.Conv1D(192, 16, activation="relu", padding="same")(x)
+    # x = tf.keras.layers.MaxPooling1D(pool_size=4)(x)
+    # x = tf.keras.layers.Flatten()(x)
+    # x = tf.keras.layers.Dense(units=256, activation="relu")(x)
+    # # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
     # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
-    outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
+    # model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    # FEMNIST dataset
+    inputs = tf.keras.Input(shape=(784,), name="input")
+    x = tf.keras.layers.Reshape((28,28,1))(inputs)
+    x = tf.keras.layers.Conv2D(32, [5, 5], activation="relu", padding="same")(x)
+    x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
+    x = tf.keras.layers.Conv2D(64, [5, 5], activation="relu", padding="same")(x)
+    x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(units=2048, activation="relu")(x)
+    outputs = tf.keras.layers.Dense(units=64, activation="softmax", name="predictions")(x)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
     model.compile(loss="sparse_categorical_crossentropy", optimizer="sgd", metrics=["accuracy"])
@@ -85,10 +97,14 @@ def fit_config(rnd: int, batch_size: int, num_epochs: int, deadline: float, fedp
     return config
 
 def get_eval_fn(model):
-    test_f = open('../data/data/test/test_har.json')
+    # test_f = open('../data/data/test/test_har.json')
+    test_f = open('../data/leaf/data/femnist/data/test/all_data_0_niid_2_keep_0_test_9.json')
     test = json.load(test_f)
-    x_test = np.array(test['user_data']['testuser_1']['x'])
-    y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
+    # x_test = np.array(test['user_data']['testuser_1']['x'])
+    # y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
+
+    x_test = np.array(test['user_data']['f1640_48']['x'])
+    y_test = np.array(test['user_data']['f1640_48']['y']).reshape(-1,1)
 
     # The `evaluate` function will be called after every round
     def evaluate(weights: fl.common.Weights) -> Optional[Tuple[float, float]]:

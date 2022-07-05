@@ -33,11 +33,19 @@ public class TransferLearningModelTest {
 
   @Test
   public void saveAndLoadShouldPreserveParameters() throws IOException {
+
+    String[] classArray = new String[64];
+    for (int i = 0; i<classArray.length; i++){
+      classArray[i] = String.valueOf(i);
+    }
+    System.out.println(classArray);
+
     TransferLearningModel model =
         new TransferLearningModel(
             new AssetModelLoader(
                 InstrumentationRegistry.getInstrumentation().getContext(), "model"),
-            Arrays.asList("1", "2", "3", "4", "5"));
+//            Arrays.asList("1", "2", "3", "4", "5"));
+            Arrays.asList(classArray));
 
     Path tempFilePath = Files.createTempFile("tflite-tl-test", ".bin");
 
@@ -56,7 +64,8 @@ public class TransferLearningModelTest {
                 return new LiteModelWrapper(this.loadMappedFile("softmax_initialize_ones.tflite"));
               }
             },
-            Arrays.asList("1", "2", "3", "4", "5"));
+//            Arrays.asList("1", "2", "3", "4", "5"));
+            Arrays.asList(classArray));
 
     model.loadParameters(FileChannel.open(tempFilePath, StandardOpenOption.READ));
     model.saveParameters(FileChannel.open(tempFilePath, StandardOpenOption.WRITE));

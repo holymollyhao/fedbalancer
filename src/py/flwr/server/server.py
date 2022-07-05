@@ -257,7 +257,8 @@ class Server:
                     self.deadline = (np.mean(round_duration_summ_list) * self.strategy.ddl_baseline_fixed_value_multiplied_at_mean)
                 if self.strategy.fedbalancer:
                     self.deadline = (np.mean(round_duration_summ_list))
-            
+
+            self.deadline = 10000000.0
             log(INFO, "Deadline {}".format(self.deadline))
             self.oort_non_pacer_deadline = self.deadline
         

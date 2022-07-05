@@ -175,9 +175,15 @@ class FedAvgAndroid(Strategy):
             return None
         weights = self.parameters_to_weights(parameters)
 
-        weights[0] = weights[0].reshape((16,9,192))
-        weights[2] = weights[2].reshape((6144,256))
-        weights[4] = weights[4].reshape((256,6))
+        # TODO: reshaping process needs to be changed
+        # weights[0] = weights[0].reshape((16,9,192))
+        # weights[2] = weights[2].reshape((6144,256))
+        # weights[4] = weights[4].reshape((256,6))
+        # kernel_size,reshaped,filters
+        weights[0] = weights[0].reshape((5, 5, 1, 32))
+        weights[2] = weights[2].reshape((5, 5, 32, 64))
+        weights[4] = weights[4].reshape((3136, 2048))
+        weights[6] = weights[6].reshape((2048, 64))
 
         eval_res = self.eval_fn(weights)
 
@@ -195,10 +201,15 @@ class FedAvgAndroid(Strategy):
             return None
         weights = self.parameters_to_weights(parameters)
 
-        weights[0] = weights[0].reshape((16,9,192))
-        # weights[2] = weights[2].reshape((5376,256))
-        weights[2] = weights[2].reshape((6144,256))
-        weights[4] = weights[4].reshape((256,6))
+        # TODO: reshaping process needs to be changed
+        # weights[0] = weights[0].reshape((16,9,192))
+        # weights[2] = weights[2].reshape((6144,256))
+        # weights[4] = weights[4].reshape((256,6))
+        # kernel_size,reshaped,filters
+        weights[0] = weights[0].reshape((5, 5, 1, 32))
+        weights[2] = weights[2].reshape((5, 5, 32, 64))
+        weights[4] = weights[4].reshape((3136, 2048))
+        weights[6] = weights[6].reshape((2048, 64))
 
         sample_loss_res = self.sample_loss_fn(weights, x_test, y_test)
 

@@ -1,11 +1,14 @@
 package flwr.android_client;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.icu.text.SimpleDateFormat;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -37,13 +40,17 @@ import com.google.protobuf.ByteString;
 import io.grpc.stub.StreamObserver;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
@@ -128,13 +135,13 @@ public class MainActivity extends AppCompatActivity {
     public void onResume(){
         super.onResume();
         IntentFilter completeFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-        registerReceiver(onCompleteHandler, completeFilter);
+//        registerReceiver(onCompleteHandler, completeFilter);
     }
 
     @Override
     public void onPause(){
         super.onPause();
-        unregisterReceiver(onCompleteHandler);
+//        unregisterReceiver(onCompleteHandler);
     }
 
     public static void hideKeyboard(Activity activity) {
@@ -177,8 +184,12 @@ public class MainActivity extends AppCompatActivity {
                     if ((Integer.parseInt(device_id.getText().toString()) == 13) || (Integer.parseInt(device_id.getText().toString()) == 16) || (Integer.parseInt(device_id.getText().toString()) == 17) || (Integer.parseInt(device_id.getText().toString()) == 21)) {
                         FedBalancerSingleton.getInstance().setIsBigClient(true);
                     }
-                    String datapath = "/storage/emulated/0/Android/data/flwr.android_client/files/";
+
+//                    String datapath = "/storage/emulated/0/Android/data/flwr.android_client/files/";
+                    String datapath = getFilesDir().getPath();
+
                     fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
+                    setResultText("Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
                     setResultText("Training dataset is loaded in memory.");
                     connectButton.setEnabled(true);
                     connectSampleLatencyButton.setEnabled(true);
@@ -188,87 +199,73 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void downloadData(View view){
-        new DownloadTask(mDownloadManager, this).execute();
-//        File file = new File(getExternalFilesDir(null), "data.zip");
-//        String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
-//
-//        DownloadManager.Request request;
-//        request = new DownloadManager.Request(Uri.parse(youtubeUrl))
-//                .setTitle("Downloading data from chris server")
-//                .setDescription("Downloading data.zip")
-//                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-//                .setDestinationUri(Uri.fromFile(file))
-//                .setRequiresCharging(false)
-//                .setAllowedOverMetered(true)
-//                .setAllowedOverRoaming(true);
-//        if (! file.exists()){
-//            mDownloadQueueId = mDownloadManager.enqueue(request);
-//            setResultText("Downloading on path : " + file.getPath());
-//        }else{
-//            setResultText("Already downloaded on path :" + file.getPath());
-//            unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
-//
-//        }
+//        new DownloadTask(mDownloadManager, this).execute();
+//        new DownloadFile(this).execute("http://143.248.36.213:8998/femnist/data.zip");
+        new DownloadVideoAsyncTask(this).execute("http://143.248.36.213:8998/femnist/data.zip");
     }
 
 
-    private BroadcastReceiver onCompleteHandler = new BroadcastReceiver(){
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            setResultText("Download data has completed");
-            unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
-
-        }
-
-    };
+//    private BroadcastReceiver onCompleteHandler = new BroadcastReceiver(){
+//
+//        @Override
+//        public void onReceive(Context context, Intent intent) {
+//            setResultText("Download data has completed");
+//            unpackZip(getFilesDir().getPath(), "data.zip");
+//            setResultText("Unzipping data has completed");
+//
+//        }
+//
+//    };
 
     // https://stackoverflow.com/questions/3382996/how-to-unzip-files-programmatically-in-android
     private boolean unpackZip(String path, String zipname)
     {
         File file = new File(path + zipname);
-        if(!file.exists()){
-            InputStream is;
-            ZipInputStream zis;
-            try
+//        if(!file.exists()){
+        InputStream is;
+        ZipInputStream zis;
+        try
+        {
+            String filename;
+            is = new FileInputStream(path + zipname);
+            zis = new ZipInputStream(new BufferedInputStream(is));
+            ZipEntry ze;
+            byte[] buffer = new byte[1024];
+            int count;
+            while ((ze = zis.getNextEntry()) != null)
             {
-                String filename;
-                is = new FileInputStream(path + zipname);
-                zis = new ZipInputStream(new BufferedInputStream(is));
-                ZipEntry ze;
-                byte[] buffer = new byte[1024];
-                int count;
-                while ((ze = zis.getNextEntry()) != null)
-                {
-                    filename = ze.getName();
-                    // Need to create directories if not exists, or
-                    // it will generate an Exception...
-                    if (ze.isDirectory()) {
-                        File fmd = new File(path + filename);
-                        fmd.mkdirs();
-                        continue;
-                    }
-                    FileOutputStream fout = new FileOutputStream(path + filename);
-                    while ((count = zis.read(buffer)) != -1)
-                    {
-                        fout.write(buffer, 0, count);
-                    }
-                    fout.close();
-                    zis.closeEntry();
+                filename = ze.getName();
+                // Need to create directories if not exists, or
+                // it will generate an Exception...
+                if (ze.isDirectory()) {
+                    File fmd = new File(path + filename);
+                    fmd.mkdirs();
+                    continue;
                 }
-                zis.close();
+                FileOutputStream fout = new FileOutputStream(path + filename);
+                while ((count = zis.read(buffer)) != -1)
+                {
+                    fout.write(buffer, 0, count);
+                }
+                fout.close();
+                zis.closeEntry();
             }
-            catch(IOException e)
-            {
-                e.printStackTrace();
-                return false;
-            }
-            setResultText("Unzipping download complete");
-        }else{
-            setResultText("Unzipped file already exists!");
+            zis.close();
         }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+            return false;
+        }
+        setResultText("Unzipping download complete");
+        loadDataButton.setEnabled(true);
+        downloadDataButton.setEnabled(false);
+//        }else{
+//            setResultText("Unzipped file already exists!");
+//        }
         return true;
     }
+
 
     public void connect(View view) {
         String host = ip.getText().toString();
@@ -281,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
         }
         else {
             int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
-            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(10 * 1024 * 1024).usePlaintext().build();
+            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
             hideKeyboard(this);
             trainButton.setEnabled(true);
             connectButton.setEnabled(false);
@@ -303,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
         }
         else {
             int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
-            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(10 * 1024 * 1024).usePlaintext().build();
+            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
             hideKeyboard(this);
             trainButton.setEnabled(true);
             connectButton.setEnabled(false);
@@ -352,64 +349,218 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static class DownloadTask extends AsyncTask<Void, Void, String> {
-        private final DownloadManager downloadManager;
-        private final MainActivity activityReference;
-//        private final Long downloadQueueId;
+    public class DownloadVideoAsyncTask extends AsyncTask<String, Integer, String> {
 
-        DownloadTask(DownloadManager downloadManager, MainActivity activity) {
-            this.downloadManager = downloadManager;
-//            this.downloadQueueId = downloadQueueId;
-            this.activityReference = activity;
+        private final MainActivity mContext;
+//        private final MainActivity activityReference;
+
+        public DownloadVideoAsyncTask(MainActivity context) {
+            mContext = context;
         }
 
         @Override
-        protected String doInBackground(Void... nothing) {
-            MainActivity activity = activityReference;
+        protected void onPreExecute() {
+            super.onPreExecute();
 
+        }
+
+        @Override
+        protected String doInBackground(String... sUrl) {
+            InputStream input = null;
+            OutputStream output = null;
+            HttpURLConnection connection = null;
             try {
-                File file = new File(activity.getExternalFilesDir(null), "data.zip");
-                // TODO: hard coding fix
-                String youtubeUrl = "http://143.248.36.213:8999/femnist/data.zip";
+                URL url = new URL(sUrl[0]);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.connect();
 
-                DownloadManager.Request request;
-                request = new DownloadManager.Request(Uri.parse(youtubeUrl))
-                        .setTitle("Downloading data from chris server")
-                        .setDescription("Downloading data.zip")
-                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                        .setDestinationUri(Uri.fromFile(file))
-                        .setRequiresCharging(false)
-                        .setAllowedOverMetered(true)
-                        .setAllowedOverRoaming(true);
-                if (! file.exists()){
-                    downloadManager.enqueue(request);
-                    activity.setResultText("Downloading on path : " + file.getPath());
-                }else{
-                    activity.setResultText("Already downloaded on path :" + file.getPath());
-                    activity.unpackZip("/storage/emulated/0/Android/data/flwr.android_client/files/", "data.zip");
-
+                // expect HTTP 200 OK, so we don't mistakenly save error report
+                // instead of the file
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    return "Server returned HTTP " + connection.getResponseCode()
+                            + " " + connection.getResponseMessage();
                 }
-                return "Download successful \n";
+
+                // this will be useful to display download percentage
+                // might be -1: server did not report the length
+                int fileLength = connection.getContentLength();
+
+                // download the file
+                input = connection.getInputStream();
+
+//            output = new FileOutputStream("/data/data/com.example.vadym.test1/textfile.txt");
+                output = new FileOutputStream(mContext.getFilesDir() + "/data.zip");
+
+                byte data[] = new byte[4096];
+                long total = 0;
+                int count;
+                while ((count = input.read(data)) != -1) {
+                    // allow canceling with back button
+                    if (isCancelled()) {
+                        input.close();
+                        return null;
+                    }
+                    total += count;
+                    // publishing the progress....
+                    if (fileLength > 0) // only if total length is known
+                        publishProgress((int) (total * 100 / fileLength));
+                    output.write(data, 0, count);
+                }
             } catch (Exception e) {
-                StringWriter sw = new StringWriter();
-                PrintWriter pw = new PrintWriter(sw);
-                e.printStackTrace(pw);
-                pw.flush();
-                return "Failed to download \n" + sw;
+                return e.toString();
+            } finally {
+                try {
+                    if (output != null)
+                        output.close();
+                    if (input != null)
+                        input.close();
+                } catch (IOException ignored) {
+                }
+
+                if (connection != null)
+                    connection.disconnect();
             }
+            return null;
         }
 
         @Override
-        protected void onPostExecute(String result) {
-            MainActivity activity = activityReference;
-            if (activity == null) {
-                return;
-            }
-            activity.setResultText(result);
-            activity.loadDataButton.setEnabled(true);
-            activity.downloadDataButton.setEnabled(false);
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+            mContext.setResultText("Current download progress %: " + values[0]);
+            Log.d("ptg", "Current download progress %: " + values[0]);
+
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            mContext.setResultText("Download complete");
+            mContext.unpackZip(mContext.getFilesDir().getPath() + "/","data.zip");
+            super.onPostExecute(s);
+
         }
     }
+
+//    private static class DownloadFile extends AsyncTask<String, Void, Bitmap> {
+//
+//        private final MainActivity activityReference;
+//
+//        DownloadFile(MainActivity activity) {
+//            this.activityReference = activity;
+//        }
+//
+//        @Override
+//        protected Bitmap doInBackground(String... URL) {
+//            Bitmap bitmap = null;
+//            activityReference.setResultText(URL[0]);
+//            try {
+//                // Download Image from URL
+//                InputStream input = new java.net.URL(URL[0]).openStream();
+//                // Decode Bitmap
+//                bitmap = BitmapFactory.decodeStream(input);
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//            return bitmap;
+//        }
+//
+//        @Override
+//        protected void onPreExecute() {
+//            super.onPreExecute();
+//        }
+//
+//
+//        @Override
+//        protected void onPostExecute(Bitmap result) {
+//
+//            if (result != null) {
+//                File dir = new File(activityReference.getFilesDir(), "data");
+//                if(!dir.exists()){
+//                    dir.mkdir();
+//                }
+//                File destination = new File(dir, "data.zip");
+//
+//                try {
+//                    destination.createNewFile();
+//                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+////                    result.compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+//                    byte[] bitmapdata = bos.toByteArray();
+//
+//                    FileOutputStream fos = new FileOutputStream(destination);
+//                    fos.write(bitmapdata);
+//                    fos.flush();
+//                    fos.close();
+//                    activityReference.unpackZip(activityReference.getFilesDir().getPath() + "/data", "data.zip");
+//                    activityReference.setResultText("done!");
+////                    selectedFile = destination;
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//    }
+
+
+//    private static class DownloadTask extends AsyncTask<Void, Void, String> {
+//        private final DownloadManager downloadManager;
+//        private final MainActivity activityReference;
+//
+//        DownloadTask(DownloadManager downloadManager, MainActivity activity) {
+//            this.downloadManager = downloadManager;
+//            this.activityReference = activity;
+//        }
+//
+//        @Override
+//        protected String doInBackground(Void... nothing) {
+//            MainActivity activity = activityReference;
+//
+//            try {
+//                File file = new File(activity.getExternalFilesDir(null), "data.zip");
+////                activity.setResultText(Uri.fromFile(file1).toString());
+//                File destFile = new File(activity.getApplicationContext().getCacheDir(), "data.zip");
+////                activity.setResultText(Uri.fromFile(file).toString());
+//
+//                // TODO: hard coding fix
+//                String youtubeUrl = "http://143.248.36.213:8998/femnist/data.zip";
+//
+//                DownloadManager.Request request;
+//                request = new DownloadManager.Request(Uri.parse(youtubeUrl))
+//                        .setTitle("Downloading data from chris server")
+//                        .setDescription("Downloading data.zip")
+//                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+//                        .setDestinationUri(Uri.fromFile(file))
+//                        .setRequiresCharging(false)
+//                        .setAllowedOverMetered(true)
+//                        .setAllowedOverRoaming(true);
+//                if (! file.exists()){
+//                    downloadManager.enqueue(request);
+//                    System.out.println("download!");
+//                    activity.setResultText("Downloading on path : " + file.getPath());
+//                }else{
+//                    activity.setResultText("Already downloaded on path :" + file.getPath());
+//                }
+//                activity.copyFile(file, destFile);
+//                return "Download successful \n";
+//            } catch (Exception e) {
+//                StringWriter sw = new StringWriter();
+//                PrintWriter pw = new PrintWriter(sw);
+//                e.printStackTrace(pw);
+//                pw.flush();
+//                return "Failed to download \n" + sw;
+//            }
+//        }
+//
+//        @Override
+//        protected void onPostExecute(String result) {
+//            MainActivity activity = activityReference;
+//            if (activity == null) {
+//                return;
+//            }
+//            System.out.println(result);
+//            activity.setResultText(result);
+//            activity.loadDataButton.setEnabled(true);
+//            activity.downloadDataButton.setEnabled(false);
+//        }
+//    }
 
     private interface GrpcRunnable {
         void run(FlowerServiceBlockingStub blockingStub, FlowerServiceStub asyncStub, MainActivity activity) throws Exception;
@@ -439,7 +590,7 @@ public class MainActivity extends AppCompatActivity {
                                 public void onError(Throwable t) {
                                     failed = t;
                                     finishLatch.countDown();
-                                    Log.e(TAG, t.getMessage());
+                                    Log.e(TAG, t.getMessage() + " error ahs occured");
                                 }
 
                                 @Override
@@ -521,8 +672,13 @@ public class MainActivity extends AppCompatActivity {
                     Log.e(TAG, sampleloss.size()+"");
 
                     // Our new new model has 6 layers -> UCIHAR_CNN
-                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
-                    for (int i = 0; i < 6; i++) {
+//                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
+//                    for (int i = 0; i < 6; i++) {
+//                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
+//                    }
+                    // Our new new model has 6 layers -> FEMNIST
+                    ByteBuffer[] newWeights = new ByteBuffer[8] ;
+                    for (int i = 0; i < 8; i++) {
                         newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
                     }
                     
@@ -631,8 +787,13 @@ public class MainActivity extends AppCompatActivity {
                     int local_epochs = (int) epoch_config.getSint64();
 
                     // Our new new model has 6 layers -> UCIHAR_CNN
-                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
-                    for (int i = 0; i < 6; i++) {
+//                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
+//                    for (int i = 0; i < 6; i++) {
+//                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
+//                    }
+                    // Our new new model has 6 layers -> FEMNIST
+                    ByteBuffer[] newWeights = new ByteBuffer[8] ;
+                    for (int i = 0; i < 8; i++) {
                         newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
                     }
 
