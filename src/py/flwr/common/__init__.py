@@ -40,6 +40,8 @@ from .typing import Reconnect as Reconnect
 from .typing import Scalar as Scalar
 from .typing import Status as Status
 from .typing import Weights as Weights
+from .typing import InitConfigIns as InitConfigIns
+from .typing import InitConfigRes as InitConfigRes
 
 GRPC_MAX_MESSAGE_LENGTH: int = 536_870_912  # == 512 * 1024 * 1024
 __all__ = [
@@ -69,4 +71,6 @@ __all__ = [
     "Status",
     "Weights",
     "weights_to_parameters",
+    "InitConfigIns",
+    "InitConfigRes",
 ]

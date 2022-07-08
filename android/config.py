@@ -40,6 +40,7 @@ class Config():
         
     def read_config(self, filename = DEFAULT_CONFIG_FILE):
         if not os.path.exists(filename):
+            print(f'Filename <{filename}> does not exist!')
             assert False
         with open(filename, 'r') as f:
             for line in f:

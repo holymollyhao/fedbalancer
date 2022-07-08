@@ -29,6 +29,8 @@ from flwr.common import (
     FitRes,
     SampleLatency,
     SampleLatencyRes,
+    InitConfigIns,
+    InitConfigRes,
     DeviceInfoRes,
     Parameters,
     Reconnect,
@@ -101,6 +103,9 @@ class Server:
 
         self.guard_time = 0
 
+        #TODO: fixed dataset name currently -> needs fixing
+        self.dataset_name = "femnist"
+
         self.round_exploited_utility = []
 
     def set_max_workers(self, max_workers: Optional[int]) -> None:
@@ -115,10 +120,34 @@ class Server:
         """Return ClientManager."""
         return self._client_manager
 
+    def initial_config(self):
+        log(INFO, "Configuration of each device started!")
+        all_clients = self._client_manager.sample(self.strategy.total_client_num)
+        for client in all_clients:
+            client_instructions = self.strategy.configure_init_configure(
+                datasetName=self.dataset_name, client=client
+            )
+            results, failures, server_msg_receive_time = initialize_configuration_clients(
+                client_instructions,
+                max_workers=self.max_workers
+            )
+        log(INFO, "Configuration of each device finished!")
+
     # pylint: disable=too-many-locals
     def fit(self, num_rounds: int) -> History:
         """Run federated averaging for a number of rounds."""
+        # assert(0)
         history = History()
+
+        # log(INFO, "Configuration of each device")
+        # for client in all_clients:
+        #     client_instructions = self.strategy.configure_init_configure(
+        #         datasetName=self.dataset_name, client=client
+        #     )
+        #     results, failures, server_msg_receive_time = initialize_configuration_clients(
+        #         client_instructions,
+        #         max_workers=self.max_workers
+        #     )
 
         # Initialize parameters
         log(INFO, "Initializing global parameters")
@@ -147,8 +176,13 @@ class Server:
         # download_time: (message receive time on client) - (message sent time on server)
         # upload_time: (message receive time on server) - (message sent time on client)
 
-        all_clients = self._client_manager.sample(self.strategy.total_client_num) # TODO: SHOULD BE NUMBER OF CLIENTS PARTICIPATING, IN REAL EXPERIMENT IT IS 21
+            # if len(results) != 0 and len(results[0]) != 0:
+            #     log(INFO, "client_id," + str(client.device_id))
+            #     log(INFO, "success," + str(client.device_id))
 
+        # for client in all_clients:
+        #
+        all_clients = self._client_manager.sample(self.strategy.total_client_num)
         # Get device info from clients
         device_ids = device_info(all_clients)
         for device_id in device_ids:
@@ -573,6 +607,10 @@ class Server:
             log(INFO, "Using initial parameters provided by strategy")
             return parameters
 
+        #TODO: initialize parameters with server network connection
+        all_clients = self._client_manager.sample(self.strategy.total_client_num)
+
+
         # Get initial parameters from one of the clients
         log(INFO, "Requesting initial parameters from one random client")
         random_client = self._client_manager.sample(1)[0]
@@ -644,6 +682,44 @@ def sample_latency_clients(
             # Success case
             result = future.result()
             results.append(result)
+    return results, failures, server_msg_receive_time
+
+def initialize_configuration_clients(
+    client_instructions: List[Tuple[ClientProxy, InitConfigIns]],
+    max_workers: Optional[int]
+) -> FitResultsAndFailures:
+    log(INFO, "at least initialziation is called")
+    log(INFO, "client instructions are : " + str(client_instructions))
+
+    """Refine parameters concurrently on all selected clients."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        log(INFO, "running within concurrent feature")
+        submitted_fs = {
+            executor.submit(initialize_configuration_client, client_proxy, initconfigis)
+            for client_proxy, initconfigis in client_instructions
+        }
+        finished_fs, _ = concurrent.futures.wait(
+            fs=submitted_fs,
+            timeout=None
+        )
+
+    server_msg_receive_time = datetime.now()
+
+    # Gather results
+    results: List[Tuple[ClientProxy, SampleLatencyRes]] = []
+    failures: List[BaseException] = []
+    for future in finished_fs:
+        failure = future.exception()
+        if failure is not None:
+            failures.append(failure)
+        else:
+            # Success case
+            result = future.result()
+            results.append(result)
+
+    log(INFO, "end of initialziation")
+    log(INFO, "results" + str(results))
+    log(INFO, "failure" + str(failures))
     return results, failures, server_msg_receive_time
 
 def device_info(all_clients):
@@ -737,6 +813,12 @@ def sample_latency_client(client: ClientProxy, sl: SampleLatency) -> Tuple[Clien
     """Refine parameters on a single client."""
     sample_latency_res = client.sample_latency(sl)
     return client, sample_latency_res
+
+def initialize_configuration_client(client: ClientProxy, initconfigins: InitConfigIns) -> Tuple[ClientProxy, InitConfigRes]:
+    """Refine parameters on a single client."""
+    log(INFO, "within initialize_configuration_client in server.py")
+    init_config_res = client.initialize_config(initconfigins)
+    return client, init_config_res
 
 
 def evaluate_clients(

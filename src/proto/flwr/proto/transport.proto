@@ -43,6 +43,10 @@ enum Reason {
 
 message ServerMessage {
   message Reconnect { int64 seconds = 1; }
+//  TODO: config sending proto
+  message InitializeConfigIns {
+    string dataset_name = 1;
+  }
   message GetParameters {}
   message FitIns {
     Parameters parameters = 1;
@@ -67,11 +71,15 @@ message ServerMessage {
     PropertiesIns properties_ins = 5;
     SampleLatency sample_latency = 6;
     DeviceInfo device_info = 7;
+    InitializeConfigIns initialize_config_ins = 8;
   }
 }
 
 message ClientMessage {
   message Disconnect { Reason reason = 1; }
+  message InitializeConfigRes {
+    int64 success = 1;
+  }
   message ParametersRes { Parameters parameters = 1; }
   message FitRes {
     Parameters parameters = 1;
@@ -119,6 +127,7 @@ message ClientMessage {
     PropertiesRes properties_res = 5;
     SampleLatencyRes sample_latency_res = 6;
     DeviceInfoRes device_info_res = 7;
+    InitializeConfigRes initialize_config_res = 8;
   }
 }
 

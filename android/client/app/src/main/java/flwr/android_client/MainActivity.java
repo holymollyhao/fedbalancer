@@ -18,6 +18,7 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -56,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -67,20 +69,17 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean is_latency_sampling;
 
-    private Button downloadDataButton;
     private Button loadDataButton;
     private Button connectButton;
     private Button connectSampleLatencyButton;
     private Button trainButton;
+    private Button initConfigButton;
     private TextView resultText;
     private EditText device_id;
     private ManagedChannel channel;
     public FlowerClient fc;
     private static String TAG = "Flower";
-
-    // for downloadmanager
-    private DownloadManager mDownloadManager;
-    private Long mDownloadQueueId;
+    private String dataset;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,20 +110,13 @@ public class MainActivity extends AppCompatActivity {
         ip = (EditText) findViewById(R.id.serverIP);
         port = (EditText) findViewById(R.id.serverPort);
 
-        downloadDataButton = (Button) findViewById(R.id.download_data);
-        loadDataButton = (Button) findViewById(R.id.load_data) ;
+        initConfigButton = (Button) findViewById(R.id.initialize_config);
+        loadDataButton = (Button) findViewById(R.id.load_data);
         connectButton = (Button) findViewById(R.id.connect);
         connectSampleLatencyButton = (Button) findViewById(R.id.connect_samplelatency);
         trainButton = (Button) findViewById(R.id.trainFederated);
 
-        mDownloadManager = (DownloadManager)getSystemService(Context.DOWNLOAD_SERVICE);
-
         loadDataButton.setEnabled(false);
-//        runOnUiThread(new Runnable(){
-//            @Override public void run() {
-//                device_id.setText(Integer.toString(1));
-//            }
-//        });
 
         Log.e(TAG, Build.MODEL);
 
@@ -164,6 +156,15 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    public void initConfig(View view){
+//        TODO: need to fix the hard-coded part
+        String host = "143.248.36.213";
+        String portStr = "8999";
+        int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
+        channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
+        new InitConfigGrpcTask(new FlowerServiceRunnable(), channel, this).execute();
+    }
+
     public void loadData(View view){
         if (TextUtils.isEmpty(device_id.getText().toString())) {
             Toast.makeText(this, "Please enter a client partition ID between 1 and 21 (inclusive)", Toast.LENGTH_LONG).show();
@@ -175,7 +176,6 @@ public class MainActivity extends AppCompatActivity {
         else{
             hideKeyboard(this);
             setResultText("Loading the local training dataset in memory. It will take several seconds.");
-            loadDataButton.setEnabled(false);
             final Handler handler = new Handler();
             handler.postDelayed(new Runnable() {
                 @Override
@@ -185,12 +185,15 @@ public class MainActivity extends AppCompatActivity {
                         FedBalancerSingleton.getInstance().setIsBigClient(true);
                     }
 
-//                    String datapath = "/storage/emulated/0/Android/data/flwr.android_client/files/";
                     String datapath = getFilesDir().getPath();
-
                     fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
+
+                    // log results
                     setResultText("Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
                     setResultText("Training dataset is loaded in memory.");
+
+                    // set button availability accordingly
+                    loadDataButton.setEnabled(false);
                     connectButton.setEnabled(true);
                     connectSampleLatencyButton.setEnabled(true);
                 }
@@ -198,72 +201,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void downloadData(View view){
-//        new DownloadTask(mDownloadManager, this).execute();
-//        new DownloadFile(this).execute("http://143.248.36.213:8998/femnist/data.zip");
-        new DownloadVideoAsyncTask(this).execute("http://143.248.36.213:8998/femnist/data.zip");
-    }
-
-
-//    private BroadcastReceiver onCompleteHandler = new BroadcastReceiver(){
-//
-//        @Override
-//        public void onReceive(Context context, Intent intent) {
-//            setResultText("Download data has completed");
-//            unpackZip(getFilesDir().getPath(), "data.zip");
-//            setResultText("Unzipping data has completed");
-//
-//        }
-//
-//    };
-
-    // https://stackoverflow.com/questions/3382996/how-to-unzip-files-programmatically-in-android
-    private boolean unpackZip(String path, String zipname)
-    {
-        File file = new File(path + zipname);
-//        if(!file.exists()){
-        InputStream is;
-        ZipInputStream zis;
-        try
-        {
-            String filename;
-            is = new FileInputStream(path + zipname);
-            zis = new ZipInputStream(new BufferedInputStream(is));
-            ZipEntry ze;
-            byte[] buffer = new byte[1024];
-            int count;
-            while ((ze = zis.getNextEntry()) != null)
-            {
-                filename = ze.getName();
-                // Need to create directories if not exists, or
-                // it will generate an Exception...
-                if (ze.isDirectory()) {
-                    File fmd = new File(path + filename);
-                    fmd.mkdirs();
-                    continue;
-                }
-                FileOutputStream fout = new FileOutputStream(path + filename);
-                while ((count = zis.read(buffer)) != -1)
-                {
-                    fout.write(buffer, 0, count);
-                }
-                fout.close();
-                zis.closeEntry();
-            }
-            zis.close();
-        }
-        catch(IOException e)
-        {
+    public void initializeConfigs(){
+        try {
+            String urlString = String.format("http://143.248.36.213:8998/%s/data.zip", dataset);
+            new DownloadAsyncTask(this).execute(urlString).get();
+            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+        } catch (ExecutionException e) {
             e.printStackTrace();
-            return false;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-        setResultText("Unzipping download complete");
-        loadDataButton.setEnabled(true);
-        downloadDataButton.setEnabled(false);
-//        }else{
-//            setResultText("Unzipped file already exists!");
-//        }
-        return true;
     }
 
 
@@ -302,9 +249,9 @@ public class MainActivity extends AppCompatActivity {
             int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
             channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
             hideKeyboard(this);
-            trainButton.setEnabled(true);
-            connectButton.setEnabled(false);
-            connectSampleLatencyButton.setEnabled(false);
+//            trainButton.setEnabled(true);
+//            connectButton.setEnabled(false);
+//            connectSampleLatencyButton.setEnabled(false);
             setResultText("Channel object created. Ready to sample latency!");
         }
     }
@@ -345,16 +292,120 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             activity.setResultText(result);
-            activity.trainButton.setEnabled(false);
+//            activity.trainButton.setEnabled(false);
         }
     }
 
-    public class DownloadVideoAsyncTask extends AsyncTask<String, Integer, String> {
+    private static class InitConfigGrpcTask extends AsyncTask<Void, Void, String> {
+        private final GrpcRunnable grpcRunnable;
+        private final ManagedChannel channel;
+        private final MainActivity activityReference;
+
+        InitConfigGrpcTask(GrpcRunnable grpcRunnable, ManagedChannel channel, MainActivity activity) {
+            this.grpcRunnable = grpcRunnable;
+            this.channel = channel;
+            this.activityReference = activity;
+        }
+
+        @Override
+        protected String doInBackground(Void... nothing) {
+            try {
+                grpcRunnable.run(FlowerServiceGrpc.newBlockingStub(channel), FlowerServiceGrpc.newStub(channel), this.activityReference);
+                return "Connection to the FL server for initialization successful \n";
+            } catch (Exception e) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                pw.flush();
+                return "Failed to connect to the FL server \n" + sw;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            MainActivity activity = activityReference;
+            if (activity == null) {
+                return;
+            }
+            activity.setResultText(result);
+//            activity.trainButton.setEnabled(false);
+        }
+    }
+
+    public class UnzipDataAsyncTask extends AsyncTask<String, Integer, String> {
 
         private final MainActivity mContext;
-//        private final MainActivity activityReference;
 
-        public DownloadVideoAsyncTask(MainActivity context) {
+        public UnzipDataAsyncTask(MainActivity context) {
+            mContext = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        // https://stackoverflow.com/questions/3382996/how-to-unzip-files-programmatically-in-android
+        @Override
+        protected String doInBackground(String... Args) {
+            Looper.prepare();
+            String path = Args[0];
+            String zipname = Args[1];
+
+            mContext.setResultText("UnzipDataAsyncTask Start at path : " + path + zipname);
+            File file = new File(path + zipname);
+            InputStream is;
+            ZipInputStream zis;
+            try
+            {
+                String filename;
+                is = new FileInputStream(path + zipname);
+                zis = new ZipInputStream(new BufferedInputStream(is));
+                ZipEntry ze;
+                byte[] buffer = new byte[1024];
+                int count;
+                while ((ze = zis.getNextEntry()) != null)
+                {
+                    filename = ze.getName();
+                    if (ze.isDirectory()) {
+                        File fmd = new File(path + filename);
+                        fmd.mkdirs();
+                        continue;
+                    }
+                    FileOutputStream fout = new FileOutputStream(path + filename);
+                    while ((count = zis.read(buffer)) != -1)
+                    {
+                        fout.write(buffer, 0, count);
+                    }
+                    fout.close();
+                    zis.closeEntry();
+                }
+                zis.close();
+                mContext.setResultText("done!");
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            mContext.initConfigButton.setEnabled(false);
+            mContext.loadDataButton.setEnabled(true);
+            mContext.setResultText("UnzipDataAsyncTask Complete!");
+            super.onPostExecute(s);
+
+        }
+    }
+
+    public class DownloadAsyncTask extends AsyncTask<String, Integer, String> {
+
+        private final MainActivity mContext;
+
+        public DownloadAsyncTask(MainActivity context) {
             mContext = context;
         }
 
@@ -365,12 +416,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected String doInBackground(String... sUrl) {
+        protected String doInBackground(String... Args) {
+            String urlString = Args[0];
+
             InputStream input = null;
             OutputStream output = null;
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(sUrl[0]);
+                URL url = new URL(urlString);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.connect();
 
@@ -434,133 +487,10 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(String s) {
             mContext.setResultText("Download complete");
-            mContext.unpackZip(mContext.getFilesDir().getPath() + "/","data.zip");
             super.onPostExecute(s);
 
         }
     }
-
-//    private static class DownloadFile extends AsyncTask<String, Void, Bitmap> {
-//
-//        private final MainActivity activityReference;
-//
-//        DownloadFile(MainActivity activity) {
-//            this.activityReference = activity;
-//        }
-//
-//        @Override
-//        protected Bitmap doInBackground(String... URL) {
-//            Bitmap bitmap = null;
-//            activityReference.setResultText(URL[0]);
-//            try {
-//                // Download Image from URL
-//                InputStream input = new java.net.URL(URL[0]).openStream();
-//                // Decode Bitmap
-//                bitmap = BitmapFactory.decodeStream(input);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//            return bitmap;
-//        }
-//
-//        @Override
-//        protected void onPreExecute() {
-//            super.onPreExecute();
-//        }
-//
-//
-//        @Override
-//        protected void onPostExecute(Bitmap result) {
-//
-//            if (result != null) {
-//                File dir = new File(activityReference.getFilesDir(), "data");
-//                if(!dir.exists()){
-//                    dir.mkdir();
-//                }
-//                File destination = new File(dir, "data.zip");
-//
-//                try {
-//                    destination.createNewFile();
-//                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-////                    result.compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
-//                    byte[] bitmapdata = bos.toByteArray();
-//
-//                    FileOutputStream fos = new FileOutputStream(destination);
-//                    fos.write(bitmapdata);
-//                    fos.flush();
-//                    fos.close();
-//                    activityReference.unpackZip(activityReference.getFilesDir().getPath() + "/data", "data.zip");
-//                    activityReference.setResultText("done!");
-////                    selectedFile = destination;
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }
-//    }
-
-
-//    private static class DownloadTask extends AsyncTask<Void, Void, String> {
-//        private final DownloadManager downloadManager;
-//        private final MainActivity activityReference;
-//
-//        DownloadTask(DownloadManager downloadManager, MainActivity activity) {
-//            this.downloadManager = downloadManager;
-//            this.activityReference = activity;
-//        }
-//
-//        @Override
-//        protected String doInBackground(Void... nothing) {
-//            MainActivity activity = activityReference;
-//
-//            try {
-//                File file = new File(activity.getExternalFilesDir(null), "data.zip");
-////                activity.setResultText(Uri.fromFile(file1).toString());
-//                File destFile = new File(activity.getApplicationContext().getCacheDir(), "data.zip");
-////                activity.setResultText(Uri.fromFile(file).toString());
-//
-//                // TODO: hard coding fix
-//                String youtubeUrl = "http://143.248.36.213:8998/femnist/data.zip";
-//
-//                DownloadManager.Request request;
-//                request = new DownloadManager.Request(Uri.parse(youtubeUrl))
-//                        .setTitle("Downloading data from chris server")
-//                        .setDescription("Downloading data.zip")
-//                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-//                        .setDestinationUri(Uri.fromFile(file))
-//                        .setRequiresCharging(false)
-//                        .setAllowedOverMetered(true)
-//                        .setAllowedOverRoaming(true);
-//                if (! file.exists()){
-//                    downloadManager.enqueue(request);
-//                    System.out.println("download!");
-//                    activity.setResultText("Downloading on path : " + file.getPath());
-//                }else{
-//                    activity.setResultText("Already downloaded on path :" + file.getPath());
-//                }
-//                activity.copyFile(file, destFile);
-//                return "Download successful \n";
-//            } catch (Exception e) {
-//                StringWriter sw = new StringWriter();
-//                PrintWriter pw = new PrintWriter(sw);
-//                e.printStackTrace(pw);
-//                pw.flush();
-//                return "Failed to download \n" + sw;
-//            }
-//        }
-//
-//        @Override
-//        protected void onPostExecute(String result) {
-//            MainActivity activity = activityReference;
-//            if (activity == null) {
-//                return;
-//            }
-//            System.out.println(result);
-//            activity.setResultText(result);
-//            activity.loadDataButton.setEnabled(true);
-//            activity.downloadDataButton.setEnabled(false);
-//        }
-//    }
 
     private interface GrpcRunnable {
         void run(FlowerServiceBlockingStub blockingStub, FlowerServiceStub asyncStub, MainActivity activity) throws Exception;
@@ -569,6 +499,7 @@ public class MainActivity extends AppCompatActivity {
     private static class FlowerServiceRunnable implements GrpcRunnable {
         private Throwable failed;
         private StreamObserver<ClientMessage> requestObserver;
+
         @Override
         public void run(FlowerServiceBlockingStub blockingStub, FlowerServiceStub asyncStub, MainActivity activity)
                 throws Exception {
@@ -602,7 +533,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void handleMessage(ServerMessage message, MainActivity activity) {
-
+            Log.e(TAG,"HANDLING MESSAGES");
             try {
                 ByteBuffer[] weights;
                 ClientMessage c = null;
@@ -671,17 +602,25 @@ public class MainActivity extends AppCompatActivity {
                     Log.e(TAG, sampleloss.toString());
                     Log.e(TAG, sampleloss.size()+"");
 
-                    // Our new new model has 6 layers -> UCIHAR_CNN
-//                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
-//                    for (int i = 0; i < 6; i++) {
-//                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
-//                    }
-                    // Our new new model has 6 layers -> FEMNIST
-                    ByteBuffer[] newWeights = new ByteBuffer[8] ;
-                    for (int i = 0; i < 8; i++) {
-                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
+                    // decoding process differs via datasets -> different datasets have different models
+                    Log.e(TAG, activity.dataset);
+                    ByteBuffer[] newWeights = new ByteBuffer[0];
+                    if(activity.dataset.contains("har")){
+                        // Our new new model has 6 layers -> har(UCIHAR_CNN)
+                        newWeights = new ByteBuffer[6] ;
+                        for (int i = 0; i < 6; i++) {
+                            newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
+                        }
+                    }else if(activity.dataset.contains("femnist")){
+                        Log.e(TAG, "setting byte buffer of dataset femnist");
+                        // Our new new model has 8 layers -> femnist
+                        newWeights = new ByteBuffer[8] ;
+                        for (int i = 0; i < 8; i++) {
+                            newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
+                        }
                     }
-                    
+
+                    Log.e(TAG, "setting byte buffer done");
                     Pair<ByteBuffer[], Integer> outputs = null;
 
                     List<Integer> sampleIndexToTrain = new ArrayList<Integer>();
@@ -791,7 +730,7 @@ public class MainActivity extends AppCompatActivity {
 //                    for (int i = 0; i < 6; i++) {
 //                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
 //                    }
-                    // Our new new model has 6 layers -> FEMNIST
+                    // Our new new model has 8 layers -> FEMNIST
                     ByteBuffer[] newWeights = new ByteBuffer[8] ;
                     for (int i = 0; i < 8; i++) {
                         newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
@@ -804,7 +743,26 @@ public class MainActivity extends AppCompatActivity {
                     date = new Date(System.currentTimeMillis());
                     String msg_sent_time = formatter.format(date);
                     c = sampleLatencyResAsProto(msg_receive_time, msg_sent_time, slrv.getTrain_time_per_epoch(), slrv.getTrain_time_per_batch(), inference_time, slrv.getWeights(), slrv.getSize_training(), slrv.getTrain_time_per_epoch_list(), slrv.getTrain_time_per_batch_list());
+                } else if (message.hasInitializeConfigIns()) { // TODO: initialize config implementation
+                    Log.e(TAG, "Handling InitializeConfig");
+
+                    activity.setResultText("Handling InitializeConfig request from the server.");
+                    String datasetName = message.getInitializeConfigIns().getDatasetName();
+
+                    activity.setResultText("Got datasetName from server as : " + datasetName);
+
+                    // set dataset string to the given datasetName & run initialzation function
+                    activity.dataset = datasetName;
+                    activity.initializeConfigs();
+
+                    // send response to server
+                    c = initializeConfigResAsProto(datasetName);
+                    requestObserver.onNext(c);
+
+                    // finish & close the grpc connection
+                    requestObserver.onCompleted();
                 }
+
                 requestObserver.onNext(c);
                 activity.setResultText("Response sent to the server");
                 c = null;
@@ -871,6 +829,19 @@ public class MainActivity extends AppCompatActivity {
         ClientMessage.SampleLatencyRes res = res_builder.build();
 
         return ClientMessage.newBuilder().setSampleLatencyRes(res).build();
+    }
+
+    // TODO: initialize config response proto
+    private static ClientMessage initializeConfigResAsProto(String datasetName){
+        ClientMessage.InitializeConfigRes.Builder res_builder;
+        if(datasetName == ""){
+            res_builder = ClientMessage.InitializeConfigRes.newBuilder().setSuccess(1);
+        }else{
+            res_builder = ClientMessage.InitializeConfigRes.newBuilder().setSuccess(0);
+        }
+        ClientMessage.InitializeConfigRes res = res_builder.build();
+//        return ClientMessage.newBuilder().setSampleLatencyRes(res).build();
+        return ClientMessage.newBuilder().setInitializeConfigRes(res).build();
     }
 
     private static ClientMessage deviceInfoAsProto(int device_id){

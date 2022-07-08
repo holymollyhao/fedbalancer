@@ -162,3 +162,14 @@ class Disconnect:
     """Disconnect message from client to server."""
 
     reason: str
+
+
+@dataclass
+class InitConfigIns:
+    """InitConfig instructions for a client."""
+    dataset_name: str
+
+@dataclass
+class InitConfigRes:
+    """InitConfig response from a client."""
+    success: int

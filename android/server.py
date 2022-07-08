@@ -77,6 +77,7 @@ def main() -> None:
     )
 
     # Start Flower server for 10 rounds of federated learning
+    fl.server.start_initconfig_server("[::]:8999", config={"num_rounds": 1}, strategy=strategy, filename=cfg.output_path)
     fl.server.start_server("[::]:8999", config={"num_rounds": 1000}, strategy=strategy, filename=cfg.output_path)
 
 def fit_config(rnd: int, batch_size: int, num_epochs: int, deadline: float, fedprox: bool, fedbalancer: bool, fb_p: float, ss_baseline: bool):
@@ -103,6 +104,7 @@ def get_eval_fn(model):
     # x_test = np.array(test['user_data']['testuser_1']['x'])
     # y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
 
+    #TODO: test user 만들기 -> preporocess
     x_test = np.array(test['user_data']['f1640_48']['x'])
     y_test = np.array(test['user_data']['f1640_48']['y']).reshape(-1,1)
 

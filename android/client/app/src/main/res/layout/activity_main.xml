@@ -44,14 +44,24 @@
         android:orientation="vertical">
 
         <Button
-            android:id="@+id/download_data"
+            android:id="@+id/initialize_config"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_margin="5sp"
             android:backgroundTint="#9DE1EA"
-            android:onClick="downloadData"
-            android:text="downlaod Data" />
+            android:onClick="initConfig"
+            android:text="Initialize and Download data" />
+
+<!--        <Button-->
+<!--            android:id="@+id/download_data"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_gravity="center"-->
+<!--            android:layout_margin="5sp"-->
+<!--            android:backgroundTint="#9DE1EA"-->
+<!--            android:onClick="downloadData"-->
+<!--            android:text="downlaod Data" />-->
 
         <Button
             android:id="@+id/load_data"

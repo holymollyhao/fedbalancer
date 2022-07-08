@@ -123,6 +123,43 @@ def start_server(  # pylint: disable=too-many-arguments
 
     return hist
 
+def start_initconfig_server(  # pylint: disable=too-many-arguments
+    server_address: str = DEFAULT_SERVER_ADDRESS,
+    server: Optional[Server] = None,
+    config: Optional[Dict[str, int]] = None,
+    strategy: Optional[Strategy] = None,
+    grpc_max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
+    force_final_distributed_eval: bool = False,
+    certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
+    filename: str = ''
+) -> History:
+
+    initialized_server, initialized_config = _init_defaults(server, config, strategy)
+
+    # Start gRPC server
+    grpc_server = start_grpc_server(
+        client_manager=initialized_server.client_manager(),
+        server_address=server_address,
+        max_message_length=grpc_max_message_length,
+        certificates=certificates,
+    )
+    num_rounds = initialized_config["num_rounds"]
+    ssl_status = "enabled" if certificates is not None else "disabled"
+
+    configure(identifier="InitialConfiguration", filename=filename)
+
+    msg = f"Flower server running InitialConfiguration"
+    log(INFO, msg)
+
+    hist = _init_config(
+        server=initialized_server,
+    )
+
+    # Stop the gRPC server
+    grpc_server.stop(grace=1)
+
+    return hist
+
 
 def _init_defaults(
     server: Optional[Server],
@@ -149,6 +186,7 @@ def _fl(
     server: Server, config: Dict[str, int], force_final_distributed_eval: bool
 ) -> History:
     # Fit model
+    # hist_init = server.initial_config()
     hist = server.fit(num_rounds=config["num_rounds"])
     log(INFO, "app_fit: losses_distributed %s", str(hist.losses_distributed))
     log(INFO, "app_fit: metrics_distributed %s", str(hist.metrics_distributed))
@@ -176,4 +214,12 @@ def _fl(
     # Graceful shutdown
     server.disconnect_all_clients()
 
+    return hist
+
+def _init_config(
+    server: Server
+) -> History:
+    hist = server.initial_config()
+    log(INFO, "Initializnig parameters, currenlty only datasetName")
+    server.disconnect_all_clients()
     return hist

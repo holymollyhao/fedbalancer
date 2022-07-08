@@ -58,7 +58,7 @@ class GrpcClientProxy(ClientProxy):
         )
         device_info_res = serde.device_info_res_from_proto(client_msg.device_info_res)
         return device_info_res
-    
+
     def sample_latency(self, ins:common.SampleLatency) -> common.ParametersRes:
         """Measure and return the latency of current local model parameters."""
         sample_latency_msg = serde.sample_latency_to_proto(ins)
@@ -67,6 +67,17 @@ class GrpcClientProxy(ClientProxy):
         )
         sample_latency_res = serde.sample_latency_res_from_proto(client_msg.sample_latency_res)
         return sample_latency_res
+
+    # TODO: initialize config for grpc client proxy
+
+    def initialize_config(self, ins:common.InitConfigIns) -> common.ParametersRes:
+        """Measure and return the latency of current local model parameters."""
+        initialize_config_msg = serde.initialize_config_to_proto(ins)
+        client_msg: ClientMessage = self.bridge.request(
+            ServerMessage(initialize_config_ins=initialize_config_msg)
+        )
+        initialize_config_res = serde.initialize_config_from_proto(client_msg.initialize_config_res)
+        return initialize_config_res
 
     def fit(self, ins: common.FitIns) -> common.FitRes:
         """Refine the provided weights using the locally held dataset."""

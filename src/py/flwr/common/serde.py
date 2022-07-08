@@ -92,6 +92,27 @@ def get_parameters_to_proto() -> ServerMessage.GetParameters:
     return ServerMessage.GetParameters()
 
 
+# === InitializeConfig messages ===
+
+def initialize_config_to_proto(ins: typing.InitConfigIns) -> ServerMessage.InitializeConfigIns:
+    print("initialize_config_to_proto in serde.py")
+    return ServerMessage.InitializeConfigIns(dataset_name = ins.dataset_name)
+
+
+def initialize_config_from_proto(msg: ServerMessage.InitializeConfigIns) -> typing.InitConfigRes:
+    return typing.InitConfigRes(
+        success=msg.success,
+    )
+
+
+# def initialize_config_res_to_proto(response: str, answer: int) -> ClientMessage.ExampleRes:
+#     return ClientMessage.ExampleRes(response=response, answer=answer)
+#
+#
+# def initialize_config_res_from_proto(res: ClientMessage.ExampleRes) -> Tuple[str, int]:
+#     return res.response, res.answer
+
+
 # Not required:
 # def get_weights_from_proto(msg: ServerMessage.GetWeights) -> None:
 

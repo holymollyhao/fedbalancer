@@ -61,6 +61,8 @@ def handle(
         return _fit(client, server_msg.fit_ins), 0, True
     if field == "evaluate_ins":
         return _evaluate(client, server_msg.evaluate_ins), 0, True
+    if field == "initialize_config":
+        return _initialize_config(client, server_msg.init_config_ins), 0, True
     raise UnknownServerMessage()
 
 
@@ -128,3 +130,13 @@ def _evaluate(client: Client, evaluate_msg: ServerMessage.EvaluateIns) -> Client
     # Serialize evaluate result
     evaluate_res_proto = serde.evaluate_res_to_proto(evaluate_res)
     return ClientMessage(evaluate_res=evaluate_res_proto)
+
+
+def _initialize_config(client: Client, initconfig_msg: ServerMessage.InitializeConfigIns) -> ClientMessage:
+    # Deserialize evaluate instruction
+    init_config_ins = serde.initialize_config_from_proto(initconfig_msg)
+    # Perform evaluation
+    init_config_res = client.initialize_config(init_config_ins)
+    # Serialize evaluate result
+    init_config_res_proto = serde.initialize_config_to_proto(init_config_res)
+    return ClientMessage(initialize_config_res=init_config_res_proto)

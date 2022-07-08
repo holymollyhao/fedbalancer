@@ -35,6 +35,8 @@ from flwr.common import (
     DeviceInfoRes,
     Scalar,
     Weights,
+    InitConfigIns,
+    InitConfigRes,
 )
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
@@ -255,6 +257,15 @@ class FedAvgAndroid(Strategy):
 
         # Return client/config pairs
         return [(client, sample_latency)]
+
+    def configure_init_configure(
+        self, datasetName: str, client: ClientProxy
+    ) -> List[Tuple[ClientProxy, InitConfigIns]]:
+        """Configure the dataset name of initconfigins"""
+        init_config_ins = InitConfigIns(datasetName)
+
+        # Return client/config pairs
+        return [(client, init_config_ins)]
 
     def configure_evaluate(
         self, rnd: int, parameters: Parameters, client_manager: ClientManager

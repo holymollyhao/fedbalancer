@@ -101,7 +101,6 @@ def convert_to_tflite(model:str):
             ]
         )
         print(head.summary())
-        # TODO: not sure if this is the right thing...
         head.compile(loss="categorical_crossentropy", optimizer="sgd")
         print("\n\n\n\n\n\nthisisit\n\n\n\n\n\n\n")
 
