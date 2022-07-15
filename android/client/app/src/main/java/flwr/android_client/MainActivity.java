@@ -56,8 +56,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -69,17 +71,23 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean is_latency_sampling;
 
+    private Button runThreadButton;
+    private Button killThreadButton;
     private Button loadDataButton;
     private Button connectButton;
     private Button connectSampleLatencyButton;
     private Button trainButton;
     private Button initConfigButton;
+
+
     private TextView resultText;
     private EditText device_id;
     private ManagedChannel channel;
     public FlowerClient fc;
     private static String TAG = "Flower";
     private String dataset;
+    static volatile boolean isRunning;
+    private indefiniteThread runningThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,8 +123,11 @@ public class MainActivity extends AppCompatActivity {
         connectButton = (Button) findViewById(R.id.connect);
         connectSampleLatencyButton = (Button) findViewById(R.id.connect_samplelatency);
         trainButton = (Button) findViewById(R.id.trainFederated);
+        runThreadButton = (Button) findViewById(R.id.run_thread);
+        killThreadButton = (Button) findViewById(R.id.kill_thread);
 
         loadDataButton.setEnabled(false);
+        isRunning = false;
 
         Log.e(TAG, Build.MODEL);
 
@@ -163,6 +174,48 @@ public class MainActivity extends AppCompatActivity {
         int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
         channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
         new InitConfigGrpcTask(new FlowerServiceRunnable(), channel, this).execute();
+    }
+    class indefiniteThread extends Thread{
+//        https://stackoverflow.com/questions/16712404/how-can-i-simulate-different-types-of-load-in-an-android-device
+        @Override
+        public void run(){
+            setResultText("child thread is starting");
+            Random rd = new Random();
+            float a, b;
+            int x, y;
+            @SuppressWarnings("unused") double r;
+            while(isRunning) {
+                x = rd.nextInt(20) + 20;
+                y = rd.nextInt(20) + 20;
+                a = rd.nextFloat();
+                b = rd.nextFloat();
+                //noinspection UnusedAssignment
+                r = Math.pow(a + x, b + y) / Math.tan((double) (a + x) / (b + y));
+            }
+            setResultText("child thread is closing");
+        }
+    }
+    public void runThread(View view){
+        setResultText("Running Thread start");
+
+        // For starting thread
+        isRunning = true;
+        runningThread = new indefiniteThread();
+        runningThread.start();
+        setResultText("Indefinite thread is currently running");
+
+        // Set Button enable accordingly
+        runThreadButton.setEnabled(false);
+        killThreadButton.setEnabled(true);
+    }
+
+    public void killThread(View view){
+        // For killing thread
+        isRunning = false;
+
+        // Set Button enable accordingly
+        runThreadButton.setEnabled(true);
+        killThreadButton.setEnabled(false);
     }
 
     public void loadData(View view){
@@ -258,6 +311,8 @@ public class MainActivity extends AppCompatActivity {
 
     public void runGRCP(View view){
         new GrpcTask(new FlowerServiceRunnable(), channel, this).execute();
+//        TODO: need to implement run threads here
+
     }
 
     private static class GrpcTask extends AsyncTask<Void, Void, String> {

@@ -1,3 +1,4 @@
+import argparse
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import flwr as fl
@@ -12,38 +13,38 @@ from config import Config
 
 from args import parse_args
 
-def main() -> None:
+def main(args) -> None:
     # Create strategy
 
-    # WHEN MODEL = CNN and INPUT SIZE = 128 * 9
-    # inputs = tf.keras.Input(shape=(1152,), name="digits")
-    # x = tf.keras.layers.Reshape((128,9))(inputs)
-    # x = tf.keras.layers.Conv1D(192, 16, activation="relu", padding="same")(x)
-    # x = tf.keras.layers.MaxPooling1D(pool_size=4)(x)
-    # x = tf.keras.layers.Flatten()(x)
-    # x = tf.keras.layers.Dense(units=256, activation="relu")(x)
-    # # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
-    # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
-    # model = tf.keras.Model(inputs=inputs, outputs=outputs)
-
-    # FEMNIST dataset
-    inputs = tf.keras.Input(shape=(784,), name="input")
-    x = tf.keras.layers.Reshape((28,28,1))(inputs)
-    x = tf.keras.layers.Conv2D(32, [5, 5], activation="relu", padding="same")(x)
-    x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
-    x = tf.keras.layers.Conv2D(64, [5, 5], activation="relu", padding="same")(x)
-    x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
-    x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(units=2048, activation="relu")(x)
-    outputs = tf.keras.layers.Dense(units=64, activation="softmax", name="predictions")(x)
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    if 'ucihar' in args.dataset:
+        # HAR dataset
+        inputs = tf.keras.Input(shape=(1152,), name="digits")
+        x = tf.keras.layers.Reshape((128,9))(inputs)
+        x = tf.keras.layers.Conv1D(192, 16, activation="relu", padding="same")(x)
+        x = tf.keras.layers.MaxPooling1D(pool_size=4)(x)
+        x = tf.keras.layers.Flatten()(x)
+        x = tf.keras.layers.Dense(units=256, activation="relu")(x)
+        # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
+        outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    elif 'femnsit' in args.dataset:
+        # FEMNIST dataset
+        inputs = tf.keras.Input(shape=(784,), name="input")
+        x = tf.keras.layers.Reshape((28,28,1))(inputs)
+        x = tf.keras.layers.Conv2D(32, [5, 5], activation="relu", padding="same")(x)
+        x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
+        x = tf.keras.layers.Conv2D(64, [5, 5], activation="relu", padding="same")(x)
+        x = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(x)
+        x = tf.keras.layers.Flatten()(x)
+        x = tf.keras.layers.Dense(units=2048, activation="relu")(x)
+        outputs = tf.keras.layers.Dense(units=64, activation="softmax", name="predictions")(x)
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
     model.compile(loss="sparse_categorical_crossentropy", optimizer="sgd", metrics=["accuracy"])
 
     x_test = None
     y_test = None
 
-    args = parse_args()
     config_name = args.config
 
     cfg = Config(config_name)
@@ -54,7 +55,7 @@ def main() -> None:
         min_eval_clients=cfg.min_eval_clients,
         min_available_clients=cfg.min_available_clients,
 
-        eval_fn=get_eval_fn(model),
+        eval_fn=get_eval_fn(model=model, dataset=args.dataset),
         sample_loss_fn=get_sample_loss_fn(model),
         on_fit_config_fn=fit_config,
         initial_parameters=None,
@@ -97,16 +98,23 @@ def fit_config(rnd: int, batch_size: int, num_epochs: int, deadline: float, fedp
     }
     return config
 
-def get_eval_fn(model):
-    # test_f = open('../data/data/test/test_har.json')
-    test_f = open('../data/leaf/data/femnist/data/test/all_data_0_niid_2_keep_0_test_9.json')
-    test = json.load(test_f)
-    # x_test = np.array(test['user_data']['testuser_1']['x'])
-    # y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
+def get_eval_fn(model, dataset):
+    if 'ucihar' in dataset:
+        test_f = open('../data/data/test/test_har.json')
+        test = json.load(test_f)
+        x_test = np.array(test['user_data']['testuser_1']['x'])
+        y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
 
-    #TODO: test user 만들기 -> preporocess
-    x_test = np.array(test['user_data']['f1640_48']['x'])
-    y_test = np.array(test['user_data']['f1640_48']['y']).reshape(-1,1)
+    elif 'femnsit' in dataset:
+        test_f = open('../data/leaf/data/femnist/data/test/all_data_0_niid_2_keep_0_test_9.json')
+        test = json.load(test_f)
+        x_test = np.array(test['user_data']['f1640_48']['x'])
+        y_test = np.array(test['user_data']['f1640_48']['y']).reshape(-1, 1)
+
+
+    # TODO: test user 만들기 -> preporocess
+    # x_test = np.array(test['user_data']['f1640_48']['x'])
+    # y_test = np.array(test['user_data']['f1640_48']['y']).reshape(-1,1)
 
     # The `evaluate` function will be called after every round
     def evaluate(weights: fl.common.Weights) -> Optional[Tuple[float, float]]:
@@ -128,4 +136,9 @@ def get_sample_loss_fn(model):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="arguments for server")
+    parser.add_argument('--config', type=str, help='config file for server')
+    parser.add_argument('--dataset', type=str, help='dataset configuration, select from : femnist, ucihar')
+
+    args = parser.parse_args()
+    main(args)

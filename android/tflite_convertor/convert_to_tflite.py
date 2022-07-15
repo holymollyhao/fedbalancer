@@ -1,6 +1,7 @@
 import argparse
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras import layers
 from tensorflow.keras.regularizers import l2
 from tfltransfer import bases
@@ -102,16 +103,62 @@ def convert_to_tflite(model:str):
         )
         print(head.summary())
         head.compile(loss="categorical_crossentropy", optimizer="sgd")
-        print("\n\n\n\n\n\nthisisit\n\n\n\n\n\n\n")
 
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
-        # TODO: default values from default.cfg
         converter = TFLiteTransferConverter(
-            64, base_path, heads.KerasModelHead(head), optimizers.SGD(1e-2), train_batch_size=10
+            6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
+        )
+        converter.convert_and_save("tflite_model")
+
+    elif 'big_reddit' in model:
+        # TODO: 응애!
+        loss_obj = tfa.seq2seq.SequenceLoss()
+        base = tf.keras.Sequential(
+            [tf.keras.Input(shape=(28, 28, 1)), tf.keras.layers.Lambda(lambda x: x)]
         )
 
-        print("\n\n\n\n\n\nthisisit\n\n\n\n\n\n\n")
+        base.compile(loss=loss_obj, optimizer="sgd")
+        base.save("identity_model_big_reddit", save_format="tf")
 
+        # 'big_reddit.topk_stacked_lstm': (2, 10, 256, 2),  # lr, seq_len, num_hidden, num_layers
+        lr = 2
+        seq_len = 10
+        num_hidden = 256
+        num_layers = 2
+        vocab_size = 10000
+
+        head = tf.keras.Sequential()
+        head.add(tf.keras.layers.Embedding(vocab_size, num_hidden, input_length=seq_len))
+        print(head.summary())
+
+        def make_cell():
+            # cell = tf.compat.v1.nn.rnn_cell.LSTMCell(num_hidden, forget_bias=0.0)
+            cell = tf.keras.layers.LSTMCell(num_hidden)
+            return cell
+
+        stacked_rnn = tf.keras.layers.StackedRNNCells(
+            [make_cell() for _ in range(num_layers)])
+        head.add(tf.keras.layers.RNN(stacked_rnn))
+        # for i in range(num_layers):
+        #     head.add(tf.keras.layers.LSTM(256))
+        head.add(tf.keras.layers.Reshape((-1, num_hidden)))
+        # print(head.summary())
+
+        print(head.summary())
+        # head.compile(loss='mse', optimizer="sgd", metrics=[tf.keras.metrics.TopKCategoricalAccuracy()])
+        # loss = lambda x, y: weighted_crossentropy(x, y, weight=...)
+
+        head.compile(loss= loss_obj, optimizer="sgd")
+
+        print("1")
+        base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        # TODO: default values from default.cfg
+
+        print("2")
+        converter = TFLiteTransferConverter(
+            10000, base_path, heads.KerasModelHead(head), optimizers.SGD(1e-2), train_batch_size=10
+        )
+        print("3")
         converter.convert_and_save("tflite_model")
 
     print("\n\n\n\n\n\nconversion and save done\n\n\n\n\n\n\n")
