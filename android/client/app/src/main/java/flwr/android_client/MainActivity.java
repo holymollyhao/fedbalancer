@@ -41,13 +41,18 @@ import com.google.protobuf.ByteString;
 import io.grpc.stub.StreamObserver;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.HttpURLConnection;
@@ -62,11 +67,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
-    private EditText ip;
-    private EditText port;
+    private EditText numOfEpoch;
+    private EditText numOfThread;
     private String latency_sampling_port;
 
     private boolean is_latency_sampling;
@@ -78,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
     private Button connectSampleLatencyButton;
     private Button trainButton;
     private Button initConfigButton;
+    private Button logDataButton;
+    private Button stopLogButton;
 
 
     private TextView resultText;
@@ -85,9 +94,11 @@ public class MainActivity extends AppCompatActivity {
     private ManagedChannel channel;
     public FlowerClient fc;
     private static String TAG = "Flower";
-    private String dataset;
-    static volatile boolean isRunning;
+    public String dataset;
+
     private indefiniteThread runningThread;
+    private volatile boolean isRunning[];
+    private volatile boolean isLogging;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,28 +126,30 @@ public class MainActivity extends AppCompatActivity {
         resultText.setMovementMethod(new ScrollingMovementMethod());
         device_id = (EditText) findViewById(R.id.device_id_edit_text);
 
-        ip = (EditText) findViewById(R.id.serverIP);
-        port = (EditText) findViewById(R.id.serverPort);
+        numOfEpoch = (EditText) findViewById(R.id.num_of_epoch);
+        numOfThread = (EditText) findViewById(R.id.num_of_threads);
 
         initConfigButton = (Button) findViewById(R.id.initialize_config);
         loadDataButton = (Button) findViewById(R.id.load_data);
-        connectButton = (Button) findViewById(R.id.connect);
-        connectSampleLatencyButton = (Button) findViewById(R.id.connect_samplelatency);
-        trainButton = (Button) findViewById(R.id.trainFederated);
+        trainButton = (Button) findViewById(R.id.start_training);
         runThreadButton = (Button) findViewById(R.id.run_thread);
         killThreadButton = (Button) findViewById(R.id.kill_thread);
+        logDataButton = (Button) findViewById(R.id.log_data);
+        stopLogButton = (Button) findViewById(R.id.stop_log_data);
 
         loadDataButton.setEnabled(false);
-        isRunning = false;
+        stopLogButton.setEnabled(false);
+        isLogging = false;
 
         Log.e(TAG, Build.MODEL);
-
-        fc = new FlowerClient(this);
+        Util.killBackgroundProcess(this);
     }
+
 
     @Override
     public void onResume(){
         super.onResume();
+        Util.killBackgroundProcess(this);
         IntentFilter completeFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
 //        registerReceiver(onCompleteHandler, completeFilter);
     }
@@ -145,6 +158,13 @@ public class MainActivity extends AppCompatActivity {
     public void onPause(){
         super.onPause();
 //        unregisterReceiver(onCompleteHandler);
+    }
+
+    @Override
+    public void onDestroy() {
+        // For killing logging thread
+        super.onDestroy();
+        isLogging = false;
     }
 
     public static void hideKeyboard(Activity activity) {
@@ -175,34 +195,131 @@ public class MainActivity extends AppCompatActivity {
         channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
         new InitConfigGrpcTask(new FlowerServiceRunnable(), channel, this).execute();
     }
+
+    public void logData(View view){
+        isLogging = true;
+
+        // Running logging thread
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmm");
+        String time = dateFormat.format(new Date());
+        String txtFileName = time + "_logfile.txt";
+        logCpuInfo logCPUThread = new logCpuInfo(getFilesDir().getPath()+"/", txtFileName, this);
+        logCPUThread.start();
+
+        logDataButton.setEnabled(false);
+        stopLogButton.setEnabled(true);
+    }
+
+    public void stopLog(View view){
+        isLogging = false;
+
+        logDataButton.setEnabled(true);
+        stopLogButton.setEnabled(false);
+
+    }
+
+
     class indefiniteThread extends Thread{
 //        https://stackoverflow.com/questions/16712404/how-can-i-simulate-different-types-of-load-in-an-android-device
+        private final int threadId;
+
+        indefiniteThread(int thread_num) {
+            this.threadId = thread_num;
+        }
+
         @Override
         public void run(){
-            setResultText("child thread is starting");
+            setResultText( String.valueOf(threadId) + "th child thread is starting");
             Random rd = new Random();
             float a, b;
             int x, y;
             @SuppressWarnings("unused") double r;
-            while(isRunning) {
+            while(isRunning[threadId]) {
                 x = rd.nextInt(20) + 20;
                 y = rd.nextInt(20) + 20;
                 a = rd.nextFloat();
                 b = rd.nextFloat();
                 //noinspection UnusedAssignment
                 r = Math.pow(a + x, b + y) / Math.tan((double) (a + x) / (b + y));
+
             }
-            setResultText("child thread is closing");
+            setResultText( String.valueOf(threadId) + "th child thread is closing");
         }
     }
+
+
+    public static double getCpuUsageEstimate(){
+        long currentSum = 0;
+        long maximumSum = 0;
+        long minimumSum = 0;
+
+        CPU cpu = new CPU();
+        List<Long> currentFreq = cpu.getCurrentFrequencies();
+        List<Long> maximumFreq = cpu.getMaximumFrequencies();
+        List<Long> minimumFreq = cpu.getMinimumFrequencies();
+        int cores = Math.min(Math.min(currentFreq.size(), maximumFreq.size()), minimumFreq.size());
+        for(int i=0; i < cores; i++){
+            currentSum += currentFreq.get(i);
+            maximumSum += maximumFreq.get(i);
+            minimumSum += minimumFreq.get(i);
+        }
+        return maximumSum <= 0 ? 0.0f : (currentSum-minimumSum)/(float)(maximumSum-minimumSum);
+    }
+
+    public class logCpuInfo extends Thread{
+        private final String dirName;
+        private final String txtFileName;
+        private final Context mContext;
+
+        logCpuInfo(String dirName, String txtFileName, Context mContext) {
+            this.dirName = dirName;
+            this.txtFileName = txtFileName;
+            this.mContext = mContext;
+        }
+
+        @Override
+        public void run(){
+            setResultText("Running CPU usage logging function");
+            while(isLogging){
+                SimpleDateFormat dateFormat = new SimpleDateFormat("MM:dd:HH:mm:ss");
+                String time = dateFormat.format(new Date());
+
+                String LoggingString = time + " " + String.valueOf(getCpuUsageEstimate()) + "\n";
+                setResultText(LoggingString);
+                setResultText(Util.listOfBackgroundProcess(mContext));
+                try {
+                    File file = new File(dirName + txtFileName);
+                    FileWriter fr = new FileWriter(file, true);
+                    fr.write(LoggingString);
+                    fr.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            setResultText("Killing CPU usage logging function");
+        }
+    }
+
     public void runThread(View view){
         setResultText("Running Thread start");
+        // Initializing thread boolean array
+        isRunning = new boolean[Integer.parseInt(numOfThread.getText().toString())];
+        for(int i=0; i<Integer.parseInt(numOfThread.getText().toString()); i++){
+            isRunning[i] = false;
+        }
 
-        // For starting thread
-        isRunning = true;
-        runningThread = new indefiniteThread();
-        runningThread.start();
-        setResultText("Indefinite thread is currently running");
+        // Running CPU-centric threads
+        for(int i=0; i<Integer.parseInt(numOfThread.getText().toString()); i++){
+            isRunning[i] = true;
+            runningThread = new indefiniteThread(i);
+            runningThread.start();
+        }
+
 
         // Set Button enable accordingly
         runThreadButton.setEnabled(false);
@@ -210,15 +327,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void killThread(View view){
-        // For killing thread
-        isRunning = false;
+        setResultText("Killing Thread start");
 
-        // Set Button enable accordingly
+        // For killing thread
+        for(int i=0; i<Integer.parseInt(numOfThread.getText().toString()); i++){
+            isRunning[i] = false;
+        }
+
+        // Set Button enable accordingly`
         runThreadButton.setEnabled(true);
         killThreadButton.setEnabled(false);
     }
 
     public void loadData(View view){
+        fc = new FlowerClient(this, dataset);
         if (TextUtils.isEmpty(device_id.getText().toString())) {
             Toast.makeText(this, "Please enter a client partition ID between 1 and 21 (inclusive)", Toast.LENGTH_LONG).show();
         }
@@ -247,8 +369,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // set button availability accordingly
                     loadDataButton.setEnabled(false);
-                    connectButton.setEnabled(true);
-                    connectSampleLatencyButton.setEnabled(true);
+                    trainButton.setEnabled(true);
                 }
             }, 1000);
         }
@@ -256,9 +377,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void initializeConfigs(){
         try {
-            String urlString = String.format("http://143.248.36.213:8998/%s/data.zip", dataset);
+            String urlString = String.format("http://143.248.36.213:8998/%s/", dataset);
             new DownloadAsyncTask(this).execute(urlString).get();
             new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -266,89 +388,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void startTraining(View view){
+        int num_of_epoch = 100000;
 
-    public void connect(View view) {
-        String host = ip.getText().toString();
-        String portStr = port.getText().toString();
-
-        if (TextUtils.isEmpty(host) || TextUtils.isEmpty(portStr) || !Patterns.IP_ADDRESS.matcher(host).matches()) {
-            Toast.makeText(this, "Please enter the correct IP and" +
-                    "" +
-                    " port of the FL server", Toast.LENGTH_LONG).show();
+        if (! TextUtils.isEmpty(numOfEpoch.getText().toString())) {
+            num_of_epoch = Integer.parseInt(numOfEpoch.getText().toString());
         }
-        else {
-            int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
-            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
-            hideKeyboard(this);
-            trainButton.setEnabled(true);
-            connectButton.setEnabled(false);
-            connectSampleLatencyButton.setEnabled(false);
-            setResultText("Channel object created. Ready to train!");
-        }
-    }
-
-    public void connect_samplelatency(View view) {
-        latency_sampling_port = Integer.toString(8999 - Integer.parseInt(device_id.getText().toString()));
-
-        String host = ip.getText().toString();
-        String portStr = latency_sampling_port;
-
-        if (TextUtils.isEmpty(host) || TextUtils.isEmpty(portStr) || !Patterns.IP_ADDRESS.matcher(host).matches()) {
-            Toast.makeText(this, "Please enter the correct IP and" +
-                    "" +
-                    " port of the FL server", Toast.LENGTH_LONG).show();
-        }
-        else {
-            int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
-            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
-            hideKeyboard(this);
-//            trainButton.setEnabled(true);
-//            connectButton.setEnabled(false);
-//            connectSampleLatencyButton.setEnabled(false);
-            setResultText("Channel object created. Ready to sample latency!");
-        }
-    }
-
-    public void runGRCP(View view){
-        new GrpcTask(new FlowerServiceRunnable(), channel, this).execute();
-//        TODO: need to implement run threads here
-
-    }
-
-    private static class GrpcTask extends AsyncTask<Void, Void, String> {
-        private final GrpcRunnable grpcRunnable;
-        private final ManagedChannel channel;
-        private final MainActivity activityReference;
-
-        GrpcTask(GrpcRunnable grpcRunnable, ManagedChannel channel, MainActivity activity) {
-            this.grpcRunnable = grpcRunnable;
-            this.channel = channel;
-            this.activityReference = activity;
-        }
-
-        @Override
-        protected String doInBackground(Void... nothing) {
-            try {
-                grpcRunnable.run(FlowerServiceGrpc.newBlockingStub(channel), FlowerServiceGrpc.newStub(channel), this.activityReference);
-                return "Connection to the FL server successful \n";
-            } catch (Exception e) {
-                StringWriter sw = new StringWriter();
-                PrintWriter pw = new PrintWriter(sw);
-                e.printStackTrace(pw);
-                pw.flush();
-                return "Failed to connect to the FL server \n" + sw;
-            }
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            MainActivity activity = activityReference;
-            if (activity == null) {
-                return;
-            }
-            activity.setResultText(result);
-//            activity.trainButton.setEnabled(false);
-        }
+        List<Integer> res = new ArrayList<Integer>();
+        fc.fit(fc.getWeights(), num_of_epoch, res);
     }
 
     private static class InitConfigGrpcTask extends AsyncTask<Void, Void, String> {
@@ -383,9 +430,9 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             activity.setResultText(result);
-//            activity.trainButton.setEnabled(false);
         }
     }
+
 
     public class UnzipDataAsyncTask extends AsyncTask<String, Integer, String> {
 
@@ -405,42 +452,58 @@ public class MainActivity extends AppCompatActivity {
         protected String doInBackground(String... Args) {
             Looper.prepare();
             String path = Args[0];
-            String zipname = Args[1];
+            String zipname;
 
-            mContext.setResultText("UnzipDataAsyncTask Start at path : " + path + zipname);
-            File file = new File(path + zipname);
-            InputStream is;
-            ZipInputStream zis;
-            try
-            {
-                String filename;
-                is = new FileInputStream(path + zipname);
-                zis = new ZipInputStream(new BufferedInputStream(is));
-                ZipEntry ze;
-                byte[] buffer = new byte[1024];
-                int count;
-                while ((ze = zis.getNextEntry()) != null)
+            // create list
+            List<String> strlist = new ArrayList<String>();
+
+            // add 4 different values to list
+            strlist.add("data.zip");
+            strlist.add("model.zip");
+
+            for (int i = 0; i < strlist.size(); i++) {
+//                mContext.setResultText("currently trying to unzip : " + strlist.get(i));
+//                try {
+//                    mContext.unzip(path + strlist.get(i), path);
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+                zipname = strlist.get(i);
+                mContext.setResultText("UnzipDataAsyncTask Start at path : " + path + zipname);
+                InputStream is;
+                ZipInputStream zis;
+                try
                 {
-                    filename = ze.getName();
-                    if (ze.isDirectory()) {
-                        File fmd = new File(path + filename);
-                        fmd.mkdirs();
-                        continue;
-                    }
-                    FileOutputStream fout = new FileOutputStream(path + filename);
-                    while ((count = zis.read(buffer)) != -1)
+                    String filename;
+                    is = new FileInputStream(path + zipname);
+                    zis = new ZipInputStream(new BufferedInputStream(is));
+                    ZipEntry ze;
+                    byte[] buffer = new byte[1024];
+                    int count;
+                    while ((ze = zis.getNextEntry()) != null)
                     {
-                        fout.write(buffer, 0, count);
+                        filename = ze.getName();
+                        if (ze.isDirectory()) {
+                            File fmd = new File(path + filename);
+                            fmd.mkdirs();
+                            continue;
+                        }
+                        FileOutputStream fout = new FileOutputStream(path + filename);
+                        while ((count = zis.read(buffer)) != -1)
+                        {
+                            fout.write(buffer, 0, count);
+                        }
+                        fout.close();
+                        zis.closeEntry();
                     }
-                    fout.close();
-                    zis.closeEntry();
+                    zis.close();
+                    mContext.setResultText("done!");
                 }
-                zis.close();
-                mContext.setResultText("done!");
-            }
-            catch(IOException e)
-            {
-                e.printStackTrace();
+                catch(IOException e)
+                {
+                    mContext.setResultText("error has occured");
+                    e.printStackTrace();
+                }
             }
 
             return null;
@@ -448,6 +511,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(String s) {
+//            mContext.fc = new FlowerClient(mContext);
             mContext.initConfigButton.setEnabled(false);
             mContext.loadDataButton.setEnabled(true);
             mContext.setResultText("UnzipDataAsyncTask Complete!");
@@ -478,43 +542,51 @@ public class MainActivity extends AppCompatActivity {
             OutputStream output = null;
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(urlString);
-                connection = (HttpURLConnection) url.openConnection();
-                connection.connect();
+                List<String> strlist = new ArrayList<String>();
+                strlist.add("data.zip");
+                strlist.add("model.zip");
 
-                // expect HTTP 200 OK, so we don't mistakenly save error report
-                // instead of the file
-                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    return "Server returned HTTP " + connection.getResponseCode()
-                            + " " + connection.getResponseMessage();
-                }
+                for (int i = 0; i < strlist.size(); i++) {
+                    mContext.setResultText("currently downloading :" + strlist.get(i));
+                    URL url = new URL(urlString + strlist.get(i));
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.connect();
 
-                // this will be useful to display download percentage
-                // might be -1: server did not report the length
-                int fileLength = connection.getContentLength();
+                    // expect HTTP 200 OK, so we don't mistakenly save error report
+                    // instead of the file
+                    if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                        return "Server returned HTTP " + connection.getResponseCode()
+                                + " " + connection.getResponseMessage();
+                    }
 
-                // download the file
-                input = connection.getInputStream();
+                    // this will be useful to display download percentage
+                    // might be -1: server did not report the length
+                    int fileLength = connection.getContentLength();
+
+                    // download the file
+                    input = connection.getInputStream();
 
 //            output = new FileOutputStream("/data/data/com.example.vadym.test1/textfile.txt");
-                output = new FileOutputStream(mContext.getFilesDir() + "/data.zip");
+                    output = new FileOutputStream(mContext.getFilesDir() + "/" + strlist.get(i));
 
-                byte data[] = new byte[4096];
-                long total = 0;
-                int count;
-                while ((count = input.read(data)) != -1) {
-                    // allow canceling with back button
-                    if (isCancelled()) {
-                        input.close();
-                        return null;
+                    byte data[] = new byte[4096];
+                    long total = 0;
+                    int count;
+                    while ((count = input.read(data)) != -1) {
+                        // allow canceling with back button
+                        if (isCancelled()) {
+                            input.close();
+                            return null;
+                        }
+                        total += count;
+                        // publishing the progress....
+                        if (fileLength > 0) // only if total length is known
+                            publishProgress((int) (total * 100 / fileLength));
+                        output.write(data, 0, count);
                     }
-                    total += count;
-                    // publishing the progress....
-                    if (fileLength > 0) // only if total length is known
-                        publishProgress((int) (total * 100 / fileLength));
-                    output.write(data, 0, count);
                 }
             } catch (Exception e) {
+                mContext.setResultText("error occured!");
                 return e.toString();
             } finally {
                 try {
@@ -662,6 +734,7 @@ public class MainActivity extends AppCompatActivity {
                     ByteBuffer[] newWeights = new ByteBuffer[0];
                     if(activity.dataset.contains("har")){
                         // Our new new model has 6 layers -> har(UCIHAR_CNN)
+                        Log.e(TAG, "setting byte buffer of dataset har");
                         newWeights = new ByteBuffer[6] ;
                         for (int i = 0; i < 6; i++) {
                             newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
@@ -766,39 +839,7 @@ public class MainActivity extends AppCompatActivity {
                     weights = activity.fc.getWeights();
 
                     c = fitResAsProto(weights, slrv.getSize_training(), current_round_loss_min, current_round_loss_max, loss_square_summ, overthreshold_loss_count, loss_summ, loss_count, slrv.getTrain_time_per_epoch(), slrv.getTrain_time_per_batch(), slrv.getTrain_time_per_epoch_list(), slrv.getTrain_time_per_batch_list());
-                } else if (message.hasSampleLatency()) {
-                    SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-                    Date date = new Date(System.currentTimeMillis());
-                    String msg_receive_time = formatter.format(date);
-
-                    Log.e(TAG, "Handling SampleLatency");
-                    activity.setResultText("Handling Fit request from the server.");
-
-                    List<ByteString> layers = message.getSampleLatency().getParameters().getTensorsList();
-
-                    Scalar epoch_config = message.getSampleLatency().getConfigMap().getOrDefault("local_epochs", Scalar.newBuilder().setSint64(1).build());
-
-                    int local_epochs = (int) epoch_config.getSint64();
-
-                    // Our new new model has 6 layers -> UCIHAR_CNN
-//                    ByteBuffer[] newWeights = new ByteBuffer[6] ;
-//                    for (int i = 0; i < 6; i++) {
-//                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
-//                    }
-                    // Our new new model has 8 layers -> FEMNIST
-                    ByteBuffer[] newWeights = new ByteBuffer[8] ;
-                    for (int i = 0; i < 8; i++) {
-                        newWeights[i] = ByteBuffer.wrap(layers.get(i).toByteArray());
-                    }
-
-                    SampleLatencyReturnValues slrv = activity.fc.sampleLatency(newWeights, local_epochs);
-
-                    float inference_time = activity.fc.sampleInferenceLatency(newWeights);
-
-                    date = new Date(System.currentTimeMillis());
-                    String msg_sent_time = formatter.format(date);
-                    c = sampleLatencyResAsProto(msg_receive_time, msg_sent_time, slrv.getTrain_time_per_epoch(), slrv.getTrain_time_per_batch(), inference_time, slrv.getWeights(), slrv.getSize_training(), slrv.getTrain_time_per_epoch_list(), slrv.getTrain_time_per_batch_list());
-                } else if (message.hasInitializeConfigIns()) { // TODO: initialize config implementation
+                }  else if (message.hasInitializeConfigIns()) { // TODO: initialize config implementation
                     Log.e(TAG, "Handling InitializeConfig");
 
                     activity.setResultText("Handling InitializeConfig request from the server.");
@@ -836,6 +877,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static ClientMessage weightsAsProto(ByteBuffer[] weights){
         List<ByteString> layers = new ArrayList<ByteString>();
+        System.out.println("sibal");
+        System.out.println(weights.length);
         for (int i=0; i < weights.length; i++) {
             layers.add(ByteString.copyFrom(weights[i]));
         }

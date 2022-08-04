@@ -85,6 +85,7 @@ class FedAvgAndroid(Strategy):
         dss=0.05,
         w=20,
         total_client_num=21,
+        dataset_name="ucihar",
     ) -> None:
         """Federated Averaging strategy.
 
@@ -144,6 +145,7 @@ class FedAvgAndroid(Strategy):
         self.w=w
 
         self.total_client_num=total_client_num
+        self.dataset_name=dataset_name
 
     def __repr__(self) -> str:
         rep = f"FedAvg(accept_failures={self.accept_failures})"
@@ -177,15 +179,18 @@ class FedAvgAndroid(Strategy):
             return None
         weights = self.parameters_to_weights(parameters)
 
-        # TODO: reshaping process needs to be changed
-        # weights[0] = weights[0].reshape((16,9,192))
-        # weights[2] = weights[2].reshape((6144,256))
-        # weights[4] = weights[4].reshape((256,6))
-        # kernel_size,reshaped,filters
-        weights[0] = weights[0].reshape((5, 5, 1, 32))
-        weights[2] = weights[2].reshape((5, 5, 32, 64))
-        weights[4] = weights[4].reshape((3136, 2048))
-        weights[6] = weights[6].reshape((2048, 64))
+        # TODO requries implementation
+        if 'har' in self.dataset_name:
+            weights[0] = weights[0].reshape((16,9,192))
+            weights[2] = weights[2].reshape((6144,256))
+            weights[4] = weights[4].reshape((256,6))
+        elif 'femnist' in self.dataset_name:
+            weights[0] = weights[0].reshape((5, 5, 1, 32))
+            weights[2] = weights[2].reshape((5, 5, 32, 64))
+            weights[4] = weights[4].reshape((3136, 2048))
+            weights[6] = weights[6].reshape((2048, 64))
+        else:
+            raise NotImplementedError
 
         eval_res = self.eval_fn(weights)
 
@@ -203,15 +208,17 @@ class FedAvgAndroid(Strategy):
             return None
         weights = self.parameters_to_weights(parameters)
 
-        # TODO: reshaping process needs to be changed
-        # weights[0] = weights[0].reshape((16,9,192))
-        # weights[2] = weights[2].reshape((6144,256))
-        # weights[4] = weights[4].reshape((256,6))
-        # kernel_size,reshaped,filters
-        weights[0] = weights[0].reshape((5, 5, 1, 32))
-        weights[2] = weights[2].reshape((5, 5, 32, 64))
-        weights[4] = weights[4].reshape((3136, 2048))
-        weights[6] = weights[6].reshape((2048, 64))
+        if 'har' in self.dataset_name:
+            weights[0] = weights[0].reshape((16,9,192))
+            weights[2] = weights[2].reshape((6144,256))
+            weights[4] = weights[4].reshape((256,6))
+        elif 'femnist' in self.dataset_name:
+            weights[0] = weights[0].reshape((5, 5, 1, 32))
+            weights[2] = weights[2].reshape((5, 5, 32, 64))
+            weights[4] = weights[4].reshape((3136, 2048))
+            weights[6] = weights[6].reshape((2048, 64))
+        else:
+            raise NotImplementedError
 
         sample_loss_res = self.sample_loss_fn(weights, x_test, y_test)
 

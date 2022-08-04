@@ -41,9 +41,10 @@ public class FlowerClient {
     private final ConditionVariable isTraining = new ConditionVariable();
     private static String TAG = "Flower";
     private int local_epochs = 1;
+    private String dataset;
 
-    public FlowerClient(Context context) {
-        this.tlModel = new TransferLearningModelWrapper(context);
+    public FlowerClient(Context context, String dataset) {
+        this.tlModel = new TransferLearningModelWrapper(context, dataset);
         this.context = context;
     }
 
@@ -80,12 +81,20 @@ public class FlowerClient {
 
         int batch_size = 10;
 
+        System.out.println(num_data);
+        System.out.println(FedBalancerSingleton.getInstance().getWholeDataLossList());
         List<Pair<Integer, Float>> whole_data_loss_list =  new ArrayList<>();
         whole_data_loss_list.addAll(FedBalancerSingleton.getInstance().getWholeDataLossList());
 
         int data_len = whole_data_loss_list.size();
 
         Collections.sort(whole_data_loss_list, Comparator.comparing(p -> p.second));
+
+        System.out.println("==============================================");
+        System.out.println(whole_data_loss_list);
+        System.out.println(whole_data_loss_list.size());
+        System.out.println("==============================================");
+
 
         for (int idx = whole_data_loss_list.size() - 1; idx >= whole_data_loss_list.size() - 382; idx--) {
             res.add(whole_data_loss_list.get(idx).first);

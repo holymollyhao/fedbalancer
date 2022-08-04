@@ -32,6 +32,7 @@ class Config():
         self.dss=0.0
         self.w=0
         self.total_client_num=21
+        self.dataset_name='uci_har'
 
         self.output_path = ''
         
@@ -92,6 +93,8 @@ class Config():
                         self.total_client_num = int(line[1])
                     elif line[0] == 'output_path':
                         self.output_path = str(line[1])
+                    elif line[0] == 'dataset_name':
+                        self.dataset_name = str(line[1])
                 except Exception as e:
                     traceback.print_exc()
     

@@ -14,7 +14,13 @@ android {
         versionName "1.0"
     }
     buildTypes {
-        debug { minifyEnabled false }
+        debug {
+            debuggable true
+            minifyEnabled false
+        }
+        quality_assurance {
+            debuggable true
+        }
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -99,7 +105,7 @@ dependencies {
 
 }
 
-def modelUrl = 'http://143.248.36.213:8998/femnist/model.zip'
+def modelUrl = 'http://143.248.36.213:8998/ucihar/model.zip'
 def modelArchivePath = "${buildDir}/model.zip"
 def modelTargetLocation = 'src/main/assets/'
 

@@ -15,8 +15,11 @@ from args import parse_args
 
 def main(args) -> None:
     # Create strategy
+    config_name = args.config
 
-    if 'ucihar' in args.dataset:
+    cfg = Config(config_name)
+
+    if 'ucihar' in cfg.dataset_name:
         # HAR dataset
         inputs = tf.keras.Input(shape=(1152,), name="digits")
         x = tf.keras.layers.Reshape((128,9))(inputs)
@@ -27,7 +30,7 @@ def main(args) -> None:
         # outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
         outputs = tf.keras.layers.Dense(units=6, activation="softmax", name="predictions")(x)
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    elif 'femnsit' in args.dataset:
+    elif 'femnsit' in cfg.dataset_name:
         # FEMNIST dataset
         inputs = tf.keras.Input(shape=(784,), name="input")
         x = tf.keras.layers.Reshape((28,28,1))(inputs)
@@ -45,9 +48,6 @@ def main(args) -> None:
     x_test = None
     y_test = None
 
-    config_name = args.config
-
-    cfg = Config(config_name)
     strategy = fl.server.strategy.FedAvgAndroid(
         fraction_fit=cfg.fraction_fit,
         fraction_eval=cfg.fraction_eval,
@@ -55,7 +55,7 @@ def main(args) -> None:
         min_eval_clients=cfg.min_eval_clients,
         min_available_clients=cfg.min_available_clients,
 
-        eval_fn=get_eval_fn(model=model, dataset=args.dataset),
+        eval_fn=get_eval_fn(model=model, dataset=cfg.dataset_name),
         sample_loss_fn=get_sample_loss_fn(model),
         on_fit_config_fn=fit_config,
         initial_parameters=None,
@@ -74,12 +74,13 @@ def main(args) -> None:
         lss=cfg.lss,
         dss=cfg.dss,
         w=cfg.w,
-        total_client_num=cfg.total_client_num, 
+        total_client_num=cfg.total_client_num,
+        dataset_name=cfg.dataset_name,
     )
 
     # Start Flower server for 10 rounds of federated learning
-    fl.server.start_initconfig_server("[::]:8999", config={"num_rounds": 1}, strategy=strategy, filename=cfg.output_path)
-    fl.server.start_server("[::]:8999", config={"num_rounds": 1000}, strategy=strategy, filename=cfg.output_path)
+    fl.server.start_initconfig_server("[::]:8999", config={"num_rounds": 1, "dataset_name": cfg.dataset_name}, strategy=strategy, filename=cfg.output_path)
+    fl.server.start_server("[::]:8999", config={"num_rounds": cfg.num_rounds}, strategy=strategy, filename=cfg.output_path)
 
 def fit_config(rnd: int, batch_size: int, num_epochs: int, deadline: float, fedprox: bool, fedbalancer: bool, fb_p: float, ss_baseline: bool):
     """Return training configuration dict for each round.
@@ -99,13 +100,15 @@ def fit_config(rnd: int, batch_size: int, num_epochs: int, deadline: float, fedp
     return config
 
 def get_eval_fn(model, dataset):
-    if 'ucihar' in dataset:
+
+    print(f"witihin get_eval_fn datset is {dataset}")
+    if 'har' in dataset:
         test_f = open('../data/data/test/test_har.json')
         test = json.load(test_f)
         x_test = np.array(test['user_data']['testuser_1']['x'])
         y_test = np.array(test['user_data']['testuser_1']['y']).reshape(-1,1)
 
-    elif 'femnsit' in dataset:
+    elif 'femnist' in dataset:
         test_f = open('../data/leaf/data/femnist/data/test/all_data_0_niid_2_keep_0_test_9.json')
         test = json.load(test_f)
         x_test = np.array(test['user_data']['f1640_48']['x'])

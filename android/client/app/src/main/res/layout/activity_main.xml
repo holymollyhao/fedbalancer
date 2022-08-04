@@ -18,25 +18,23 @@
             android:layout_weight="2"
             android:hint="Client Partition ID (1-21)"
             android:inputType="numberDecimal" />
-
+        <EditText
+            android:id="@+id/num_of_threads"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:layout_weight="2"
+            android:hint="Number of threads"
+            android:inputType="numberDecimal" />
     </LinearLayout>
-
-
     <EditText
-        android:id="@+id/serverIP"
-        android:layout_width="wrap_content"
+        android:id="@+id/num_of_epoch"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:ems="10"
-        android:hint="FL Server IP"
-        android:inputType="phone" />
-
-    <EditText
-        android:id="@+id/serverPort"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:hint="FL Server Port"
+        android:hint="Number of Epochs to Train"
         android:inputType="numberDecimal" />
+
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -53,6 +51,31 @@
             android:onClick="initConfig"
             android:text="Initialize and Download data" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/log_data"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_margin="5sp"
+                android:backgroundTint="#9DE1EA"
+                android:onClick="logData"
+                android:text="Log Data" />
+            <Button
+                android:id="@+id/stop_log_data"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_margin="5sp"
+                android:backgroundTint="#9DE1EA"
+                android:onClick="stopLog"
+                android:text="Stop Log" />
+
+        </LinearLayout>
 <!--        <Button-->
 <!--            android:id="@+id/download_data"-->
 <!--            android:layout_width="wrap_content"-->
@@ -95,42 +118,15 @@
                 android:text="Load" />
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
         <Button
-            android:id="@+id/connect"
+            android:id="@+id/start_training"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_margin="5sp"
             android:backgroundTint="#9DE1EA"
             android:enabled="false"
-            android:onClick="connect"
-            android:text="Setup For FL" />
-
-        <Button
-            android:id="@+id/connect_samplelatency"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_margin="5sp"
-            android:backgroundTint="#9DE1EA"
-            android:enabled="false"
-            android:onClick="connect_samplelatency"
-            android:text="Setup For Latency Sampling" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/trainFederated"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_margin="5sp"
-            android:backgroundTint="#9DE1EA"
-            android:enabled="false"
-            android:onClick="runGRCP"
+            android:onClick="startTraining"
             android:text="Start" />
 
     </LinearLayout>

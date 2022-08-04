@@ -20,7 +20,7 @@ def convert_to_tflite(model:str):
     Here we are using an identity layer for base model, which just passes the
     input as it is to the head model.
     """
-    if 'uci_har' in model:
+    if 'har' in model:
         base = tf.keras.Sequential(
             [tf.keras.Input(shape=(128, 9)), tf.keras.layers.Lambda(lambda x: x)]
         )
@@ -57,7 +57,7 @@ def convert_to_tflite(model:str):
         converter = TFLiteTransferConverter(
             6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
         )
-        converter.convert_and_save("tflite_model")
+        converter.convert_and_save("tflite_model_har")
 
     elif 'femnist' in model:
 
@@ -106,7 +106,7 @@ def convert_to_tflite(model:str):
 
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
         converter = TFLiteTransferConverter(
-            6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
+            64, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
         )
         converter.convert_and_save("tflite_model")
 

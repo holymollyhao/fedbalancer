@@ -18,6 +18,8 @@ package org.tensorflow.lite.examples.transfer.api;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
+
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
@@ -28,6 +30,7 @@ import java.nio.channels.FileChannel.MapMode;
 public class AssetModelLoader implements ModelLoader {
   private AssetManager assetManager;
   private String directoryName;
+  private Context mContext;
 
   /**
    * Create a loader for a transfer learning model under given directory.
@@ -37,6 +40,7 @@ public class AssetModelLoader implements ModelLoader {
   public AssetModelLoader(Context context, String directoryName) {
     this.directoryName = directoryName;
     this.assetManager = context.getAssets();
+    this.mContext = context;
   }
 
   @Override
@@ -65,12 +69,17 @@ public class AssetModelLoader implements ModelLoader {
   }
 
   protected MappedByteBuffer loadMappedFile(String filePath) throws IOException {
+    File file = new File(mContext.getFilesDir().toString(), "model/" + filePath);
+
     AssetFileDescriptor fileDescriptor = assetManager.openFd(this.directoryName + "/" + filePath);
 
-    FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+//    FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+    FileInputStream inputStream = new FileInputStream(file);
     FileChannel fileChannel = inputStream.getChannel();
-    long startOffset = fileDescriptor.getStartOffset();
-    long declaredLength = fileDescriptor.getDeclaredLength();
+//    long startOffset = fileDescriptor.getStartOffset();
+//    long declaredLength = fileDescriptor.getDeclaredLength();
+    long startOffset = 0;
+    long declaredLength = file.length();
     return fileChannel.map(MapMode.READ_ONLY, startOffset, declaredLength);
   }
 }

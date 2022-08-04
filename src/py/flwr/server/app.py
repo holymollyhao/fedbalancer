@@ -153,6 +153,7 @@ def start_initconfig_server(  # pylint: disable=too-many-arguments
 
     hist = _init_config(
         server=initialized_server,
+        config=config,
     )
 
     # Stop the gRPC server
@@ -217,9 +218,9 @@ def _fl(
     return hist
 
 def _init_config(
-    server: Server
+    server: Server, config: Dict[str, int]
 ) -> History:
-    hist = server.initial_config()
+    hist = server.initial_config(config)
     log(INFO, "Initializnig parameters, currenlty only datasetName")
     server.disconnect_all_clients()
     return hist

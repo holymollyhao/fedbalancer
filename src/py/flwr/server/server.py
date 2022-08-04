@@ -120,12 +120,12 @@ class Server:
         """Return ClientManager."""
         return self._client_manager
 
-    def initial_config(self):
+    def initial_config(self, config):
         log(INFO, "Configuration of each device started!")
         all_clients = self._client_manager.sample(self.strategy.total_client_num)
         for client in all_clients:
             client_instructions = self.strategy.configure_init_configure(
-                datasetName=self.dataset_name, client=client
+                datasetName=config['dataset_name'], client=client
             )
             results, failures, server_msg_receive_time = initialize_configuration_clients(
                 client_instructions,
@@ -688,7 +688,6 @@ def initialize_configuration_clients(
     client_instructions: List[Tuple[ClientProxy, InitConfigIns]],
     max_workers: Optional[int]
 ) -> FitResultsAndFailures:
-    log(INFO, "at least initialziation is called")
     log(INFO, "client instructions are : " + str(client_instructions))
 
     """Refine parameters concurrently on all selected clients."""

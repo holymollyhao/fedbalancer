@@ -1,5 +1,6 @@
 package flwr.android_client;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.ConditionVariable;
 import android.os.Environment;
@@ -34,9 +35,20 @@ public class TransferLearningModelWrapper implements Closeable {
     private final ConditionVariable shouldTrain = new ConditionVariable();
     private volatile LossConsumer lossConsumer;
     private Context context;
-    TransferLearningModelWrapper(Context context) {
+    private String dataset;
 
-        String[] classArray = new String[64];
+    TransferLearningModelWrapper(Context context, String dataset) {
+
+        String[] classArray = new String[0];
+        if(dataset.contains("har")){
+            classArray = new String[6];
+        }else if(dataset.contains("femnist")){
+            classArray = new String[64];
+        }
+
+//        String[] classArray = new String[64];
+//        String[] classArray = new String[30];
+
         for (int i = 0; i<classArray.length; i++){
             classArray[i] = String.valueOf(i);
         }
@@ -44,8 +56,8 @@ public class TransferLearningModelWrapper implements Closeable {
         model =
                 new TransferLearningModel(
                         new AssetModelLoader(context, "model"),
-//                        Arrays.asList("0", "1", "2", "3", "4", "5"));
-                        Arrays.asList(classArray));
+                        Arrays.asList("0", "1", "2", "3", "4", "5"));
+//                        Arrays.asList(classArray));
         this.context = context;
     }
 
