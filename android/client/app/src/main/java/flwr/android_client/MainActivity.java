@@ -389,14 +389,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void startTraining(View view){
-        int num_of_epoch = 100000;
-
-        if (! TextUtils.isEmpty(numOfEpoch.getText().toString())) {
-            num_of_epoch = Integer.parseInt(numOfEpoch.getText().toString());
-        }
-        List<Integer> res = new ArrayList<Integer>();
-        fc.fit(fc.getWeights(), num_of_epoch, res);
+        new TrainAsyncTask(this).execute();
     }
+
+    public class TrainAsyncTask extends AsyncTask<String, Integer, String> {
+
+        private final MainActivity mContext;
+
+        public TrainAsyncTask(MainActivity context) {
+            mContext = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(String... Args) {
+            int num_of_epoch = 10000;
+
+            if (!TextUtils.isEmpty(numOfEpoch.getText().toString())) {
+                num_of_epoch = Integer.parseInt(numOfEpoch.getText().toString());
+            }
+            List<Integer> res = new ArrayList<Integer>();
+
+            fc.fit(fc.getWeights(), num_of_epoch, res);
+            return null;
+        }
+
+    }
+
 
     private static class InitConfigGrpcTask extends AsyncTask<Void, Void, String> {
         private final GrpcRunnable grpcRunnable;
