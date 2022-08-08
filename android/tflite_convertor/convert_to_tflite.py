@@ -9,6 +9,9 @@ from tfltransfer import heads
 from tfltransfer import optimizers
 from tfltransfer.tflite_transfer_converter import TFLiteTransferConverter
 import argparse
+from transformers import BertTokenizer, TFBertModel
+from transformers import AutoConfig
+
 
 def convert_to_tflite(model:str):
 
@@ -109,6 +112,41 @@ def convert_to_tflite(model:str):
             6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
         )
         converter.convert_and_save("tflite_model")
+
+    elif 'bert' in model:
+
+        # base = tf.keras.Sequential(
+        #     [tf.keras.Input(shape=(28, 28, 1)), tf.keras.layers.Lambda(lambda x: x)]
+        # )
+        #
+        # base.compile(loss="categorical_crossentropy", optimizer="sgd")
+        # base.save("identity_model_femnist", save_format="tf")
+
+        """Define the head model.
+
+        This is the model architecture that we will train using Flower. 
+        """
+
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        config = AutoConfig.from_pretrained("bert-base-cased")
+        head = TFBertModel.from_pretrained("bert-base-uncased")
+        text = "Replace me by any text you'd like."
+        encoded_input = tokenizer(text, return_tensors='tf')
+        output = head(encoded_input)
+
+        print(f'output of encoded input for initializing...{output}')
+        print(config)
+
+        print(head.summary())
+
+        head.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True))
+
+        base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        converter = TFLiteTransferConverter(
+            6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
+        )
+        converter.convert_and_save("tflite_model")
+
 
     elif 'big_reddit' in model:
         # TODO: 응애!
