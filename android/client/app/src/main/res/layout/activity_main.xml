@@ -27,6 +27,7 @@
             android:hint="Number of threads"
             android:inputType="numberDecimal" />
     </LinearLayout>
+
     <EditText
         android:id="@+id/num_of_epoch"
         android:layout_width="fill_parent"
@@ -34,6 +35,10 @@
         android:ems="10"
         android:hint="Number of Epochs to Train"
         android:inputType="numberDecimal" />
+    <Spinner
+        android:id="@+id/datasets_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
 
     <LinearLayout
@@ -48,8 +53,8 @@
             android:layout_gravity="center"
             android:layout_margin="5sp"
             android:backgroundTint="#9DE1EA"
-            android:onClick="initConfig"
-            android:text="Initialize and Download data" />
+            android:onClick="downloadData"
+            android:text="Download data" />
 
         <LinearLayout
             android:layout_width="match_parent"

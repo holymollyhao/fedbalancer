@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">FB_Flower</string>
+    <string-array name="dataset_names">
+        <item>ucihar</item>
+        <item>femnist</item>
+    </string-array>
 </resources>

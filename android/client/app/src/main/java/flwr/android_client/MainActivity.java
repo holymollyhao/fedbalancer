@@ -3,6 +3,8 @@ package flwr.android_client;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -26,8 +28,10 @@ import android.util.Pair;
 import android.util.Patterns;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -88,9 +92,10 @@ public class MainActivity extends AppCompatActivity {
     private Button logDataButton;
     private Button stopLogButton;
 
-
     private TextView resultText;
     private EditText device_id;
+    private Spinner dataset_spinner;
+
     private ManagedChannel channel;
     public FlowerClient fc;
     private static String TAG = "Flower";
@@ -141,10 +146,17 @@ public class MainActivity extends AppCompatActivity {
         stopLogButton.setEnabled(false);
         isLogging = false;
 
+        dataset_spinner = (Spinner) findViewById(R.id.datasets_spinner);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.dataset_names, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        dataset_spinner.setAdapter(adapter);
+
         Log.e(TAG, Build.MODEL);
         Util.killBackgroundProcess(this);
-    }
 
+        // ForegroundService.startService(this);
+    }
 
     @Override
     public void onResume(){
@@ -187,13 +199,18 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void initConfig(View view){
-//        TODO: need to fix the hard-coded part
-        String host = "143.248.36.213";
-        String portStr = "8999";
-        int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
-        channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
-        new InitConfigGrpcTask(new FlowerServiceRunnable(), channel, this).execute();
+    public void downloadData(View view){
+        dataset = dataset_spinner.getSelectedItem().toString();
+        try {
+            String urlString = String.format("http://143.248.36.213:8998/%s/", dataset);
+            new DownloadAsyncTask(this).execute(urlString).get();
+            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     public void logData(View view){
@@ -217,7 +234,6 @@ public class MainActivity extends AppCompatActivity {
         stopLogButton.setEnabled(false);
 
     }
-
 
     class indefiniteThread extends Thread{
 //        https://stackoverflow.com/questions/16712404/how-can-i-simulate-different-types-of-load-in-an-android-device
@@ -417,7 +433,6 @@ public class MainActivity extends AppCompatActivity {
             fc.fit(fc.getWeights(), num_of_epoch, res);
             return null;
         }
-
     }
 
 
