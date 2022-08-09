@@ -9,6 +9,13 @@ from tfltransfer import heads
 from tfltransfer import optimizers
 from tfltransfer.tflite_transfer_converter import TFLiteTransferConverter
 import argparse
+# from transformers import BertTokenizer, TFBertModel, TFBertForSequenceClassification
+# from models.tfbertforseqclassification import TFBertforflwr
+# from models.mobilebert import TFBertforflwr2
+# import keras
+# from tensorflow import keras
+# from tensorflow.keras import layers
+
 
 def convert_to_tflite(model:str):
 
@@ -110,56 +117,134 @@ def convert_to_tflite(model:str):
         )
         converter.convert_and_save("tflite_model")
 
-    elif 'big_reddit' in model:
-        # TODO: 응애!
-        loss_obj = tfa.seq2seq.SequenceLoss()
-        base = tf.keras.Sequential(
-            [tf.keras.Input(shape=(28, 28, 1)), tf.keras.layers.Lambda(lambda x: x)]
-        )
+    elif 'bert_tf2_ver' in model:
 
-        base.compile(loss=loss_obj, optimizer="sgd")
-        base.save("identity_model_big_reddit", save_format="tf")
+        from bert import BertModelLayer # pip insatll bert-tf2
 
-        # 'big_reddit.topk_stacked_lstm': (2, 10, 256, 2),  # lr, seq_len, num_hidden, num_layers
-        lr = 2
-        seq_len = 10
-        num_hidden = 256
-        num_layers = 2
-        vocab_size = 10000
+        model_dir = ".models/uncased_L-12_H-768_A-12"
+        l_bert = BertModelLayer(**BertModelLayer.Params(
+            vocab_size=16000,  # embedding params
+            use_token_type=True,
+            use_position_embeddings=True,
+            token_type_vocab_size=2,
 
-        head = tf.keras.Sequential()
-        head.add(tf.keras.layers.Embedding(vocab_size, num_hidden, input_length=seq_len))
+            num_layers=12,  # transformer encoder params
+            hidden_size=768,
+            hidden_dropout=0.1,
+            intermediate_size=4 * 768,
+            intermediate_activation="gelu",
+
+            adapter_size=None,  # see arXiv:1902.00751 (adapter-BERT)
+
+            shared_layer=False,  # True for ALBERT (arXiv:1909.11942)
+            embedding_size=None,  # None for BERT, wordpiece embedding size for ALBERT
+        ))
+
+        head = tf.keras.models.Sequential([
+            tf.keras.layers.InputLayer(input_shape=(128,)),
+            l_bert,
+            tf.keras.layers.Lambda(lambda x: x[:, 0, :]),
+            tf.keras.layers.Dense(2)
+        ])
         print(head.summary())
+        head.compile(loss="categorical_crossentropy", optimizer="sgd")
 
-        def make_cell():
-            # cell = tf.compat.v1.nn.rnn_cell.LSTMCell(num_hidden, forget_bias=0.0)
-            cell = tf.keras.layers.LSTMCell(num_hidden)
-            return cell
-
-        stacked_rnn = tf.keras.layers.StackedRNNCells(
-            [make_cell() for _ in range(num_layers)])
-        head.add(tf.keras.layers.RNN(stacked_rnn))
-        # for i in range(num_layers):
-        #     head.add(tf.keras.layers.LSTM(256))
-        head.add(tf.keras.layers.Reshape((-1, num_hidden)))
-        # print(head.summary())
-
-        print(head.summary())
-        # head.compile(loss='mse', optimizer="sgd", metrics=[tf.keras.metrics.TopKCategoricalAccuracy()])
-        # loss = lambda x, y: weighted_crossentropy(x, y, weight=...)
-
-        head.compile(loss= loss_obj, optimizer="sgd")
-
-        print("1")
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
-        # TODO: default values from default.cfg
-
-        print("2")
         converter = TFLiteTransferConverter(
-            10000, base_path, heads.KerasModelHead(head), optimizers.SGD(1e-2), train_batch_size=10
+            2, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
         )
-        print("3")
         converter.convert_and_save("tflite_model")
+
+    elif 'resnet' in model:
+
+        shape = (224, 224, 3) # in W, H, C W,H must be bigger than 34
+        num_class = 1000
+
+        base = tf.keras.Sequential(
+            [tf.keras.Input(shape=shape), tf.keras.layers.Lambda(lambda x: x)]
+        )
+
+        base.compile(loss="categorical_crossentropy", optimizer="sgd")
+        base.save("identity_model_resnet", save_format="tf")
+
+
+        head = tf.keras.models.Sequential([
+            tf.keras.applications.resnet.ResNet101(
+                include_top=False,
+                weights=None,
+                input_tensor=None,
+                input_shape=shape,
+                pooling=None,
+                classes=num_class,
+            ),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(units=num_class, activation="softmax"),
+        ])
+
+        print(head.summary())
+        head.compile(loss="categorical_crossentropy", optimizer="sgd")
+        base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        converter = TFLiteTransferConverter(
+            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=64
+        )
+        converter.convert_and_save("tflite_model")
+
+    elif 'bert' in model:
+        raise NotImplementedError
+
+        # base = tf.keras.Sequential(
+        #     [tf.keras.Input(shape=(None, None, 768)), tf.keras.layers.Lambda(lambda x: x)]
+        # )
+        #
+        # base.compile(loss="categorical_crossentropy", optimizer="sgd")
+        # base.save("identity_model_bert", save_format="tf")
+
+        # import bert
+        #
+        # model_dir = ".models/uncased_L-12_H-768_A-12"
+        #
+        # bert_params = bert.params_from_pretrained_ckpt(model_dir)
+        # l_bert = BertModelLayer.from_params(bert_params, name="bert")
+
+        # head = keras.models.Sequential([
+        #     keras.layers.InputLayer(input_shape=(128,)),
+        #     l_bert,
+        #     keras.layers.Lambda(lambda x: x[:, 0, :]),
+        #     keras.layers.Dense(2)
+        # ])
+        # head.build(input_shape=(None, 128))
+
+
+        # https: // github.com / huggingface / tflite - android - transformers / blob / master / models_generation / distilbert.py
+        # model = TFBertForSequenceClassification.from_pretrained('bert-base-uncased')
+        # input_spec = tf.TensorSpec([None, 764], tf.int32)
+        # model._set_inputs(input_spec)
+        #
+        # converter = tf.lite.TFLiteConverter.from_keras_model(head)
+        #
+        # # For normal conversion:
+        # converter.target_spec.supported_ops = [tf.lite.OpsSet.SELECT_TF_OPS]
+        # tflite_model = converter.convert()
+        # open("tfbert_for_seq_classification.tflite", "wb").write(tflite_model)
+        # head = TFBertforflwr.from_pretrained('bert-base-uncased')
+
+        # head = TFBertforflwr2()
+        # head2 = TFBertForSequenceClassification.from_pretrained('bert-base-uncased')
+        #
+        # print(head.model.summary())
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
+        # loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        # head.compile(optimizer=optimizer, loss=loss)
+        # # print(config)
+        # head.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True))
+
+        # base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
+        # converter = TFLiteTransferConverter(2, base_path, heads.KerasModelHead(head), optimizer, train_batch_size=10)
+
+        # print(head.train.get_concrete_function())
+        # converter = TFLiteTransferConverter(6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10)
+        # converter.convert_and_save("tflite_model")
 
     print("\n\n\n\n\n\nconversion and save done\n\n\n\n\n\n\n")
 
