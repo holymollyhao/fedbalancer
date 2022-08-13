@@ -17,7 +17,7 @@ import argparse
 # from tensorflow.keras import layers
 
 
-def convert_to_tflite(model:str):
+def convert_to_tflite(model: str):
 
     """Define the base model.
 
@@ -73,7 +73,7 @@ def convert_to_tflite(model:str):
         )
 
         base.compile(loss="categorical_crossentropy", optimizer="sgd")
-        base.save("identity_model_femnist", save_format="tf")
+        base.save("identity_model", save_format="tf")
 
         """Define the head model.
 
@@ -155,20 +155,58 @@ def convert_to_tflite(model:str):
         )
         converter.convert_and_save("tflite_model")
 
-    elif 'resnet' in model:
+    elif 'resnet50' in model:
 
-        shape = (224, 224, 3) # in W, H, C W,H must be bigger than 34
-        num_class = 1000
+        shape = (40, 40, 1) # in W, H, C W,H must be bigger than 32
+        num_class = 62
 
         base = tf.keras.Sequential(
             [tf.keras.Input(shape=shape), tf.keras.layers.Lambda(lambda x: x)]
         )
 
         base.compile(loss="categorical_crossentropy", optimizer="sgd")
-        base.save("identity_model_resnet", save_format="tf")
+        base.save("identity_model", save_format="tf")
 
 
         head = tf.keras.models.Sequential([
+            tf.keras.Input(shape=(shape[0] * shape[1])),
+            tf.keras.layers.Reshape(shape),
+            tf.keras.applications.resnet.ResNet50(
+                include_top=False,
+                weights=None,
+                input_tensor=None,
+                input_shape=shape,
+                pooling=None,
+                classes=num_class,
+            ),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(units=num_class, activation="softmax"),
+        ])
+
+        print(head.summary())
+        head.compile(loss="categorical_crossentropy", optimizer="sgd")
+        base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        converter = TFLiteTransferConverter(
+            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
+        )
+        converter.convert_and_save("tflite_model")
+
+    elif 'resnet101' in model:
+        # original FEMNIST sized datset
+        shape = (128, 128, 1) # in W, H, C W,H must be bigger than 34
+        num_class = 62
+
+        base = tf.keras.Sequential(
+            [tf.keras.Input(shape=shape), tf.keras.layers.Lambda(lambda x: x)]
+        )
+
+        base.compile(loss="categorical_crossentropy", optimizer="sgd")
+        base.save("identity_model", save_format="tf")
+
+
+        head = tf.keras.models.Sequential([
+            tf.keras.Input(shape=(shape[0]*shape[1])),
+            tf.keras.layers.Reshape(shape),
             tf.keras.applications.resnet.ResNet101(
                 include_top=False,
                 weights=None,
@@ -185,7 +223,7 @@ def convert_to_tflite(model:str):
         head.compile(loss="categorical_crossentropy", optimizer="sgd")
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
         converter = TFLiteTransferConverter(
-            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=64
+            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
         )
         converter.convert_and_save("tflite_model")
 

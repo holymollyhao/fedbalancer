@@ -3,58 +3,63 @@ import numpy as np
 import json
 import pandas as pd
 
+
 # load a single file as a numpy array
 def load_file(filepath):
-	dataframe = pd.read_csv(filepath, header=None, delim_whitespace=True)
-	return dataframe.values
+    dataframe = pd.read_csv(filepath, header=None, delim_whitespace=True)
+    return dataframe.values
+
 
 # load a list of files into a 3D array of [samples, timesteps, features]
 def load_group(filenames, prefix=''):
-	loaded = list()
-	for name in filenames:
-		data = load_file(prefix + name)
-		loaded.append(data)
-	# stack group so that features are the 3rd dimension
-	loaded = np.dstack(loaded)
-	return loaded
+    loaded = list()
+    for name in filenames:
+        data = load_file(prefix + name)
+        loaded.append(data)
+    # stack group so that features are the 3rd dimension
+    loaded = np.dstack(loaded)
+    return loaded
+
 
 # load a dataset group, such as train or test
 def load_dataset_group(group, prefix=''):
-	filepath = prefix + group + '/Inertial Signals/'
-	# load all 9 files as a single array
-	filenames = list()
-	# total acceleration
-	filenames += ['total_acc_x_'+group+'.txt', 'total_acc_y_'+group+'.txt', 'total_acc_z_'+group+'.txt']
-	# body acceleration
-	filenames += ['body_acc_x_'+group+'.txt', 'body_acc_y_'+group+'.txt', 'body_acc_z_'+group+'.txt']
-	# body gyroscope
-	filenames += ['body_gyro_x_'+group+'.txt', 'body_gyro_y_'+group+'.txt', 'body_gyro_z_'+group+'.txt']
-	# load input data
-	X = load_group(filenames, filepath)
-	# load class output
-	y = load_file(prefix + group + '/y_'+group+'.txt')
-	return X, y
+    filepath = prefix + group + '/Inertial Signals/'
+    # load all 9 files as a single array
+    filenames = list()
+    # total acceleration
+    filenames += ['total_acc_x_' + group + '.txt', 'total_acc_y_' + group + '.txt', 'total_acc_z_' + group + '.txt']
+    # body acceleration
+    filenames += ['body_acc_x_' + group + '.txt', 'body_acc_y_' + group + '.txt', 'body_acc_z_' + group + '.txt']
+    # body gyroscope
+    filenames += ['body_gyro_x_' + group + '.txt', 'body_gyro_y_' + group + '.txt', 'body_gyro_z_' + group + '.txt']
+    # load input data
+    X = load_group(filenames, filepath)
+    # load class output
+    y = load_file(prefix + group + '/y_' + group + '.txt')
+    return X, y
+
 
 # load the dataset, returns train and test X and y elements
 def load_dataset(prefix=''):
-	# load all train
-	trainX, trainy = load_dataset_group('train', prefix + 'data/UCI HAR Dataset/')
-	print(trainX.shape, trainy.shape)
-	# load all test
-	testX, testy = load_dataset_group('test', prefix + 'data/UCI HAR Dataset/')
-	print(testX.shape, testy.shape)
-	# zero-offset class values
-	trainy = trainy - 1
-	testy = testy - 1
-	# one hot encode y
-	# trainy = to_categorical(trainy)
-	# testy = to_categorical(testy)
-	print(trainX.shape, trainy.shape, testX.shape, testy.shape)
-	return trainX, trainy, testX, testy
+    # load all train
+    trainX, trainy = load_dataset_group('train', prefix + 'data/UCI HAR Dataset/')
+    print(trainX.shape, trainy.shape)
+    # load all test
+    testX, testy = load_dataset_group('test', prefix + 'data/UCI HAR Dataset/')
+    print(testX.shape, testy.shape)
+    # zero-offset class values
+    trainy = trainy - 1
+    testy = testy - 1
+    # one hot encode y
+    # trainy = to_categorical(trainy)
+    # testy = to_categorical(testy)
+    print(trainX.shape, trainy.shape, testX.shape, testy.shape)
+    return trainX, trainy, testX, testy
+
 
 trainX, trainy, testX, testy = load_dataset()
-trainX_flat = trainX.reshape((7352,1152))
-testX_flat = testX.reshape((2947,1152))
+trainX_flat = trainX.reshape((7352, 1152))
+testX_flat = testX.reshape((2947, 1152))
 
 train_subject_f = open('data/UCI HAR Dataset/train/subject_train.txt')
 train_subject_f_lines = train_subject_f.readlines()
@@ -90,7 +95,7 @@ for client in train_users_list:
     for i in range(len(train_subject_f_tmp)):
         if train_subject_f_tmp[i] == int(client):
             client_data_count += 1
-            #train_output_user_data[client]['x'].append(train_X_tmp[i]+[0.0]*15)
+            # train_output_user_data[client]['x'].append(train_X_tmp[i]+[0.0]*15)
             train_output_user_data[client]['x'].append(list(trainX_flat[i]))
             train_output_user_data[client]['y'].append(int(trainy[i][0]))
     train_output_num_samples.append(client_data_count)
@@ -103,7 +108,7 @@ test_output_user_data['testuser_1']['y'] = []
 test_client_data_count = 0
 for i in range(len(testX)):
     test_client_data_count += 1
-    #test_output_user_data['testuser_1']['x'].append(test_X_tmp[i]+[0.0]*15)
+    # test_output_user_data['testuser_1']['x'].append(test_X_tmp[i]+[0.0]*15)
     test_output_user_data['testuser_1']['x'].append(list(testX_flat[i]))
     test_output_user_data['testuser_1']['y'].append(int(testy[i][0]))
 test_output_num_samples.append(test_client_data_count)
@@ -133,10 +138,12 @@ for user_idx, trn_user in enumerate(trn['users']):
     for sample_idx in range(len(trn['user_data'][trn_user]['x'])):
         sample_data = trn['user_data'][trn_user]['x'][sample_idx]
         sample_label = trn['user_data'][trn_user]['y'][sample_idx]
-        with open("har/train/"+str(sample_label)+"/user"+str(user_idx)+"_sample"+str(sample_idx)+".txt","w") as f:
+        with open("har/train/" + str(sample_label) + "/user" + str(user_idx) + "_sample" + str(sample_idx) + ".txt",
+                  "w") as f:
             f.write(",".join(str(x) for x in sample_data))
             f.close()
-        user_samples_location_text.append("train/"+str(sample_label)+"/user"+str(user_idx)+"_sample"+str(sample_idx)+".txt")
-    with open("har/user"+str(user_idx)+"_train.txt","w") as f:
+        user_samples_location_text.append(
+            "train/" + str(sample_label) + "/user" + str(user_idx) + "_sample" + str(sample_idx) + ".txt")
+    with open("har/user" + str(user_idx) + "_train.txt", "w") as f:
         f.write('\n'.join(user_samples_location_text))
         f.close()

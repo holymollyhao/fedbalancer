@@ -299,6 +299,14 @@ public final class TransferLearningModel implements Closeable {
               "Class \"%s\" is not one of the classes recognized by the model", className));
     }
 
+    ByteBuffer sampleBuffer2 = allocateBuffer(sample.length * FLOAT_BYTES);
+    for (float f : sample) {
+      sampleBuffer2.putFloat(f);
+    }
+    sampleBuffer2.rewind();
+    ByteBuffer bottleneck2 = bottleneckModel.generateBottleneck(sampleBuffer2, null);
+    System.out.println(classes);
+
     return executor.submit(() -> {
       ByteBuffer sampleBuffer = allocateBuffer(sample.length * FLOAT_BYTES);
       for (float f : sample) {
@@ -307,16 +315,22 @@ public final class TransferLearningModel implements Closeable {
       sampleBuffer.rewind();
 
       if (Thread.interrupted()) {
+        System.out.println("Thread is interrupted!!!!!!");
         return null;
       }
       ByteBuffer bottleneck = bottleneckModel.generateBottleneck(sampleBuffer, null);
 
       trainingLock.lockInterruptibly();
       try {
-        if (isTraining)
+        if (isTraining) {
+          System.out.println("samples are correctly added to train!");
+          Log.e("E/Flower", "samples are correctly added to train!");
           trainingSamples.add(new TrainingSample(bottleneck, className, sampleIndex));
-        else
+        }else {
+          System.out.println("samples are correctly added to test!");
+          Log.e("E/Flower", "samples are correctly added to test!");
           testingSamples.add(new TestingSample(bottleneck, className));
+        }
       } finally {
         trainingLock.unlock();
       }

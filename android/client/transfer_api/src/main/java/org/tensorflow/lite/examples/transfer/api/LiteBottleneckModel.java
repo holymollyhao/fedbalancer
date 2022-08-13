@@ -38,18 +38,37 @@ class LiteBottleneckModel implements Closeable {
    */
   synchronized ByteBuffer generateBottleneck(ByteBuffer image, ByteBuffer outBottleneck) {
     if (outBottleneck == null) {
+
       outBottleneck = ByteBuffer.allocateDirect(getNumBottleneckFeatures() * FLOAT_BYTES);
+//      outBottleneck = ByteBuffer.allocateDirect(2048 * FLOAT_BYTES);
+//      outBottleneck = ByteBuffer.allocateDirect(1600 * FLOAT_BYTES);
+
     }
+//    System.out.println("within generate Bottleneck ");
+//    System.out.println(getNumBottleneckFeatures() * FLOAT_BYTES);
+    System.out.println(getNumBottleneckFeatures());
+    System.out.println(getBottleneckShape()[0]);
+    System.out.println(getBottleneckShape()[1]);
+    System.out.println(getBottleneckShape()[2]);
+
+    System.out.printf("outBottleneck position = %4d, limit = %4d, capacity = %4d%n",
+            outBottleneck.position(), outBottleneck.limit(), outBottleneck.capacity());
+
+    System.out.printf("image position = %4d, limit = %4d, capacity = %4d%n",
+            image.position(), image.limit(), image.capacity());
 
     modelWrapper.getInterpreter().run(image, outBottleneck);
+    System.out.println("SIBALLLLs");
     image.rewind();
+    System.out.println("SIBALLLLs");
     outBottleneck.rewind();
-
+    System.out.println("exiting generate Bottleneck");
     return outBottleneck;
   }
 
   int getNumBottleneckFeatures() {
     return modelWrapper.getInterpreter().getOutputTensor(0).numElements();
+//    return 1600;
   }
 
   int[] getBottleneckShape() {

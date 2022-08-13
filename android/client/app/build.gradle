@@ -105,12 +105,12 @@ dependencies {
 
 }
 
-def modelUrl = 'http://143.248.36.213:8998/ucihar/model.zip'
+def modelUrl = 'http://143.248.36.213:8998/femnist128/model.zip'
 def modelArchivePath = "${buildDir}/model.zip"
 def modelTargetLocation = 'src/main/assets/'
 
 
-def dataUrl = 'http://143.248.36.213:8998/femnist/data.zip'
+def dataUrl = 'http://143.248.36.213:8998/femnist128/data.zip'
 def dataArchivePath = "${buildDir}/data.zip"
 def dataTargetLocation = 'src/main/assets/'
 

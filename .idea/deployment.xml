@@ -9,7 +9,7 @@
             <mapping deploy="/home/twkim/git/22summer_FedFast/flower-FedBalancer-testbed-main" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/data" />
+            <excludedPath local="true" path="$PROJECT_DIR$/data/data" />
             <excludedPath local="true" path="$PROJECT_DIR$/android/log" />
             <excludedPath local="true" path="$PROJECT_DIR$/android/client" />
             <excludedPath local="true" path="$PROJECT_DIR$/android/models" />

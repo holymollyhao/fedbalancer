@@ -6,23 +6,22 @@ import pandas as pd
 
 def preprocess(dataset_name: str):
 
-    json_filename = [filename for filename in os.listdir(f'./leaf/data/{dataset_name}/data/train/') if filename.endswith('.json')][0]
+    json_filename = [filename for filename in os.listdir(f'/mnt/sting/twkim/RealWorldFL/dataset/{dataset_name}/train') if filename.endswith('.json')][0]
     train_filename = json_filename
     test_filename = json_filename.replace('train', 'test')
 
     # file descriptor of train & test
-    trn_f = open(f'./leaf/data/{dataset_name}/data/train/{train_filename}')
-    tst_f = open(f'./leaf/data/{dataset_name}/data/test/{test_filename}')
+    trn_f = open(f'/mnt/sting/twkim/RealWorldFL/dataset/{dataset_name}/train/{train_filename}')
+    tst_f = open(f'/mnt/sting/twkim/RealWorldFL/dataset/{dataset_name}/test/{test_filename}')
 
     # load train & test json
     trn = json.load(trn_f)
     tst = json.load(tst_f)
 
 
-
     # enumerate for each user in training
     for user_idx, trn_user in enumerate(trn['users']):
-
+        print(trn_user)
         user_samples_location_text = []
 
         for sample_idx in range(len(trn['user_data'][trn_user]['x'])):
@@ -52,7 +51,7 @@ def preprocess(dataset_name: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dataset', type=str, default='femnist', help='name of dataset')
+    parser.add_argument('--dataset', type=str, default='femnist28', help='name of dataset')
 
     args = parser.parse_args()
     preprocess(args.dataset)

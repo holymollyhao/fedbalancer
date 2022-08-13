@@ -202,9 +202,12 @@ public class MainActivity extends AppCompatActivity {
     public void downloadData(View view){
         dataset = dataset_spinner.getSelectedItem().toString();
         try {
+            System.out.println(dataset);
             String urlString = String.format("http://143.248.36.213:8998/%s/", dataset);
             new DownloadAsyncTask(this).execute(urlString).get();
-            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/").get();
+//            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+//            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","model.zip").get();
 
         } catch (ExecutionException e) {
             e.printStackTrace();
@@ -380,6 +383,7 @@ public class MainActivity extends AppCompatActivity {
                     fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
 
                     // log results
+                    Log.e(TAG, "Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
                     setResultText("Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
                     setResultText("Training dataset is loaded in memory.");
 
@@ -396,6 +400,7 @@ public class MainActivity extends AppCompatActivity {
             String urlString = String.format("http://143.248.36.213:8998/%s/", dataset);
             new DownloadAsyncTask(this).execute(urlString).get();
             new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","data.zip").get();
+            new UnzipDataAsyncTask(this).execute(getFilesDir().getPath() + "/","model.zip").get();
 
         } catch (ExecutionException e) {
             e.printStackTrace();
@@ -488,7 +493,8 @@ public class MainActivity extends AppCompatActivity {
         // https://stackoverflow.com/questions/3382996/how-to-unzip-files-programmatically-in-android
         @Override
         protected String doInBackground(String... Args) {
-            Looper.prepare();
+            if (Looper.myLooper()==null)
+                Looper.prepare();
             String path = Args[0];
             String zipname;
 
@@ -507,7 +513,7 @@ public class MainActivity extends AppCompatActivity {
 //                    e.printStackTrace();
 //                }
                 zipname = strlist.get(i);
-                mContext.setResultText("UnzipDataAsyncTask Start at path : " + path + zipname);
+                mContext.setResultText("UnzipDataAsyncTask Start at path : " + path  + zipname);
                 InputStream is;
                 ZipInputStream zis;
                 try
@@ -586,6 +592,7 @@ public class MainActivity extends AppCompatActivity {
 
                 for (int i = 0; i < strlist.size(); i++) {
                     mContext.setResultText("currently downloading :" + strlist.get(i));
+                    Log.d("ptg","downloading from url : " + urlString + strlist.get(i));
                     URL url = new URL(urlString + strlist.get(i));
                     connection = (HttpURLConnection) url.openConnection();
                     connection.connect();
@@ -645,7 +652,7 @@ public class MainActivity extends AppCompatActivity {
         protected void onProgressUpdate(Integer... values) {
             super.onProgressUpdate(values);
             mContext.setResultText("Current download progress %: " + values[0]);
-            Log.d("ptg", "Current download progress %: " + values[0]);
+//            Log.d("ptg", "Current download progress %: " + values[0]);
 
         }
 

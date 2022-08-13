@@ -272,10 +272,14 @@ public class FlowerClient {
             String line = reader.readLine();
             double[] sample_in_double = Arrays.stream(line.split(",")).mapToDouble(Double::parseDouble).toArray();
             sample = Floats.toArray(Doubles.asList(sample_in_double));
-
-            this.tlModel.addSample_UCIHAR(sample, sampleClass, isTraining, sampleIndex);
+            Log.e(TAG, "Pre-Loading!!");
+            this.tlModel.addSample_UCIHAR(sample, sampleClass, isTraining, sampleIndex).get();
             Log.e(TAG, "Loaded!!");
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }

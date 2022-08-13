@@ -41,9 +41,17 @@ public class TransferLearningModelWrapper implements Closeable {
 
         String[] classArray = new String[0];
         if(dataset.contains("har")){
+            System.out.println("har dataset!");
             classArray = new String[6];
         }else if(dataset.contains("femnist")){
-            classArray = new String[64];
+            System.out.println("femnist dataset!");
+            classArray = new String[62];
+        }else{
+            try {
+                throw new Exception("NOT IN ANY DATASET");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
 //        String[] classArray = new String[64];

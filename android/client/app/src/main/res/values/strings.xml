@@ -3,5 +3,8 @@
     <string-array name="dataset_names">
         <item>ucihar</item>
         <item>femnist</item>
+        <item>femnist28</item>
+        <item>femnist40</item>
+        <item>femnist128</item>
     </string-array>
 </resources>
