@@ -54,9 +54,6 @@ public class TransferLearningModelWrapper implements Closeable {
             }
         }
 
-//        String[] classArray = new String[64];
-//        String[] classArray = new String[30];
-
         for (int i = 0; i<classArray.length; i++){
             classArray[i] = String.valueOf(i);
         }
@@ -64,7 +61,6 @@ public class TransferLearningModelWrapper implements Closeable {
         model =
                 new TransferLearningModel(
                         new AssetModelLoader(context, "model"),
-//                        Arrays.asList("0", "1", "2", "3", "4", "5"));
                         Arrays.asList(classArray));
         this.context = context;
     }

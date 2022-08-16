@@ -922,7 +922,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static ClientMessage weightsAsProto(ByteBuffer[] weights){
         List<ByteString> layers = new ArrayList<ByteString>();
-        System.out.println("sibal");
         System.out.println(weights.length);
         for (int i=0; i < weights.length; i++) {
             layers.add(ByteString.copyFrom(weights[i]));

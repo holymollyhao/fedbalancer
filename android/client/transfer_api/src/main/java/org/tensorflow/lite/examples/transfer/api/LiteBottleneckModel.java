@@ -58,9 +58,7 @@ class LiteBottleneckModel implements Closeable {
             image.position(), image.limit(), image.capacity());
 
     modelWrapper.getInterpreter().run(image, outBottleneck);
-    System.out.println("SIBALLLLs");
     image.rewind();
-    System.out.println("SIBALLLLs");
     outBottleneck.rewind();
     System.out.println("exiting generate Bottleneck");
     return outBottleneck;

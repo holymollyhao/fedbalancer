@@ -41,20 +41,6 @@ class KerasModelHead(object):
         # Convert Keras model to SavedModel.
         saved_model_dir = tempfile.mkdtemp("tflite-transfer-keras-model")
         tf.compat.v1.keras.experimental.export_saved_model(keras_model, saved_model_dir)
-        # tf.saved_model.save(
-        #     keras_model,
-        #     saved_model_dir,
-        #     signatures={
-        #         'train':
-        #             keras_model.train.get_concrete_function(),
-        #         'infer':
-        #             keras_model.infer.get_concrete_function(),
-        #         'save':
-        #             keras_model.save.get_concrete_function(),
-        #         'restore':
-        #             keras_model.restore.get_concrete_function(),
-        #     })
-
 
         # Pre-fetch some information about the model.
         with tfv1.Session(graph=tf.Graph()) as sess:

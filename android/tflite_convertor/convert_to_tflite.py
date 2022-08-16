@@ -9,6 +9,7 @@ from tfltransfer import heads
 from tfltransfer import optimizers
 from tfltransfer.tflite_transfer_converter import TFLiteTransferConverter
 import argparse
+from models.resnet50 import resnet50
 # from transformers import BertTokenizer, TFBertModel, TFBertForSequenceClassification
 # from models.tfbertforseqclassification import TFBertforflwr
 # from models.mobilebert import TFBertforflwr2
@@ -51,20 +52,13 @@ def convert_to_tflite(model: str):
             ]
         )
 
-        head.compile(loss="categorical_crossentropy", optimizer="sgd")
         print(head.summary())
-        """Convert the model for TFLite.
-
-        Using 10 classes in CIFAR10, learning rate = 1e-3 and batch size = 32
-
-        This will generate a directory called tflite_model with five tflite models.
-        Copy them in your Android code under the assets/model directory.
-        """
+        head.compile(loss="categorical_crossentropy", optimizer="sgd")
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
         converter = TFLiteTransferConverter(
             6, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
         )
-        converter.convert_and_save("tflite_model_har")
+        converter.convert_and_save("tflite_model")
 
     elif 'femnist' in model:
 
@@ -116,49 +110,12 @@ def convert_to_tflite(model: str):
             64, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=10
         )
         converter.convert_and_save("tflite_model")
-
-    elif 'bert_tf2_ver' in model:
-
-        from bert import BertModelLayer # pip insatll bert-tf2
-
-        model_dir = ".models/uncased_L-12_H-768_A-12"
-        l_bert = BertModelLayer(**BertModelLayer.Params(
-            vocab_size=16000,  # embedding params
-            use_token_type=True,
-            use_position_embeddings=True,
-            token_type_vocab_size=2,
-
-            num_layers=12,  # transformer encoder params
-            hidden_size=768,
-            hidden_dropout=0.1,
-            intermediate_size=4 * 768,
-            intermediate_activation="gelu",
-
-            adapter_size=None,  # see arXiv:1902.00751 (adapter-BERT)
-
-            shared_layer=False,  # True for ALBERT (arXiv:1909.11942)
-            embedding_size=None,  # None for BERT, wordpiece embedding size for ALBERT
-        ))
-
-        head = tf.keras.models.Sequential([
-            tf.keras.layers.InputLayer(input_shape=(128,)),
-            l_bert,
-            tf.keras.layers.Lambda(lambda x: x[:, 0, :]),
-            tf.keras.layers.Dense(2)
-        ])
-        print(head.summary())
-        head.compile(loss="categorical_crossentropy", optimizer="sgd")
-
-        base_path = bases.saved_model_base.SavedModelBase("identity_model")
-        converter = TFLiteTransferConverter(
-            2, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
-        )
-        converter.convert_and_save("tflite_model")
-
     elif 'resnet50' in model:
 
         shape = (40, 40, 1) # in W, H, C W,H must be bigger than 32
         num_class = 62
+        batch_size = 10
+        lr = 5e-3
 
         base = tf.keras.Sequential(
             [tf.keras.Input(shape=shape), tf.keras.layers.Lambda(lambda x: x)]
@@ -167,29 +124,40 @@ def convert_to_tflite(model: str):
         base.compile(loss="categorical_crossentropy", optimizer="sgd")
         base.save("identity_model", save_format="tf")
 
+        head = resnet50(shape, num_class)
 
-        head = tf.keras.models.Sequential([
-            tf.keras.Input(shape=(shape[0] * shape[1])),
-            tf.keras.layers.Reshape(shape),
-            tf.keras.applications.resnet.ResNet50(
-                include_top=False,
-                weights=None,
-                input_tensor=None,
-                input_shape=shape,
-                pooling=None,
-                classes=num_class,
-            ),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(units=num_class, activation="softmax"),
-        ])
+        # head = tf.keras.applications.resnet.ResNet50(
+        #         include_top=False,
+        #         weights=None,
+        #         input_tensor=tf.keras.Input(shape=(shape[0] * shape[1] * shape[2])),
+        #         pooling=None,
+        #         classes=num_class,
+        #     )
 
-        print(head.summary())
+        # head = tf.keras.models.Sequential([
+        #     tf.keras.Input(shape=(shape[0] * shape[1] * shape[2])),
+        #     tf.keras.layers.Reshape(shape),
+        #     tf.keras.applications.resnet.ResNet50(
+        #         include_top=False,
+        #         weights=None,
+        #         input_tensor=tf.keras.Input(shape=shape),
+        #         # input_shape=tf.keras.Input(shape=shape),
+        #         pooling=None,
+        #         classes=num_class,
+        #     ),
+        #     tf.keras.layers.Flatten(),
+        #     tf.keras.layers.Dense(units=2048, activation="relu"),
+        #     tf.keras.layers.Dense(units=num_class, activation="softmax"),
+        # ])
+
         head.compile(loss="categorical_crossentropy", optimizer="sgd")
         base_path = bases.saved_model_base.SavedModelBase("identity_model")
         converter = TFLiteTransferConverter(
-            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
+            num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(lr), train_batch_size=batch_size
         )
         converter.convert_and_save("tflite_model")
+        print(head.summary())
+
 
     elif 'resnet101' in model:
         # original FEMNIST sized datset
@@ -213,7 +181,6 @@ def convert_to_tflite(model: str):
                 input_tensor=None,
                 input_shape=shape,
                 pooling=None,
-                classes=num_class,
             ),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(units=num_class, activation="softmax"),
@@ -226,6 +193,45 @@ def convert_to_tflite(model: str):
             num_class, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
         )
         converter.convert_and_save("tflite_model")
+
+
+    elif 'bert_tf2_ver' in model:
+        raise NotImplementedError
+        # from bert import BertModelLayer # pip insatll bert-tf2
+        #
+        # model_dir = ".models/uncased_L-12_H-768_A-12"
+        # l_bert = BertModelLayer(**BertModelLayer.Params(
+        #     vocab_size=16000,  # embedding params
+        #     use_token_type=True,
+        #     use_position_embeddings=True,
+        #     token_type_vocab_size=2,
+        #
+        #     num_layers=12,  # transformer encoder params
+        #     hidden_size=768,
+        #     hidden_dropout=0.1,
+        #     intermediate_size=4 * 768,
+        #     intermediate_activation="gelu",
+        #
+        #     adapter_size=None,  # see arXiv:1902.00751 (adapter-BERT)
+        #
+        #     shared_layer=False,  # True for ALBERT (arXiv:1909.11942)
+        #     embedding_size=None,  # None for BERT, wordpiece embedding size for ALBERT
+        # ))
+        #
+        # head = tf.keras.models.Sequential([
+        #     tf.keras.layers.InputLayer(input_shape=(128,)),
+        #     l_bert,
+        #     tf.keras.layers.Lambda(lambda x: x[:, 0, :]),
+        #     tf.keras.layers.Dense(2)
+        # ])
+        # print(head.summary())
+        # head.compile(loss="categorical_crossentropy", optimizer="sgd")
+        #
+        # base_path = bases.saved_model_base.SavedModelBase("identity_model")
+        # converter = TFLiteTransferConverter(
+        #     2, base_path, heads.KerasModelHead(head), optimizers.SGD(5e-3), train_batch_size=16
+        # )
+        # converter.convert_and_save("tflite_model")
 
     elif 'bert' in model:
         raise NotImplementedError
