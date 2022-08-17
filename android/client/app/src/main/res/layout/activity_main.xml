@@ -28,6 +28,28 @@
             android:inputType="numberDecimal" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/serverIP"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:hint="FL Server IP"
+            android:inputType="phone" />
+
+        <EditText
+            android:id="@+id/serverPort"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:hint="FL Server Port"
+            android:inputType="numberDecimal" />
+    </LinearLayout>
+
     <EditText
         android:id="@+id/num_of_epoch"
         android:layout_width="fill_parent"
@@ -122,6 +144,17 @@
                 android:onClick="loadData"
                 android:text="Load" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/connect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="5sp"
+            android:backgroundTint="#9DE1EA"
+            android:enabled="false"
+            android:onClick="connect"
+            android:text="Setup For FL" />
 
         <Button
             android:id="@+id/start_training"

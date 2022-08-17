@@ -1,14 +1,15 @@
 apply plugin: 'com.google.protobuf'
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
 
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.0"
 
     defaultConfig {
-        applicationId "flwr.android_client"
+        applicationId "nmsl.rwfl"
         // API level 14+ is required for TLS since Google Play Services v10.2
-        minSdkVersion 24
+        minSdkVersion 26
         targetSdkVersion 29
         versionCode 1
         versionName "1.0"
@@ -72,6 +73,7 @@ protobuf {
     }
 }
 
+
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.0.0'
     implementation fileTree(dir: 'libs', include: ['*.jar'])
@@ -103,6 +105,16 @@ dependencies {
 
     implementation 'com.google.android.material:material:1.0.0'
 
+    // Import the Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:30.3.0')
+
+    // When using the BoM, you don't specify versions in Firebase library dependencies
+
+    // Declare the dependencies for the desired Firebase products
+    // For example, declare the dependencies for Firebase Authentication and Cloud Firestore
+    implementation 'com.google.firebase:firebase-messaging'
+//    implementation 'com.google.firebase:firebase-auth'
+//    implementation 'com.google.firebase:firebase-firestore'
 }
 
 def modelUrl = 'http://143.248.36.213:8998/femnist128/model.zip'

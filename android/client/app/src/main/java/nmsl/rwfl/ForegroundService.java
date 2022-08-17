@@ -1,4 +1,4 @@
-package flwr.android_client;
+package nmsl.rwfl;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -7,19 +7,13 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
-import android.text.TextUtils;
-import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class ForegroundService extends Service {
 
