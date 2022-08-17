@@ -380,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     String datapath = getFilesDir().getPath();
-                    fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
+                    fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath, dataset);
 
                     // log results
                     Log.e(TAG, "Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
@@ -531,7 +531,16 @@ public class MainActivity extends AppCompatActivity {
                             File fmd = new File(path + filename);
                             fmd.mkdirs();
                             continue;
+                        }else {
+                            mContext.setResultText(path + filename);
+                            File model = new File(path + "model");
+                            model.mkdirs();
+                            File fmd = new File(path + filename);
+//                            fmd.mkdirs();
+                            fmd.createNewFile();
                         }
+                        mContext.setResultText("in progress");
+                        mContext.setResultText(path + filename);
                         FileOutputStream fout = new FileOutputStream(path + filename);
                         while ((count = zis.read(buffer)) != -1)
                         {
@@ -546,7 +555,10 @@ public class MainActivity extends AppCompatActivity {
                 catch(IOException e)
                 {
                     mContext.setResultText("error has occured");
+                    System.out.println("=======================================================");
                     e.printStackTrace();
+                    System.out.println("=======================================================");
+
                 }
             }
 

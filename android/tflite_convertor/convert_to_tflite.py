@@ -10,12 +10,7 @@ from tfltransfer import optimizers
 from tfltransfer.tflite_transfer_converter import TFLiteTransferConverter
 import argparse
 from models.resnet50 import resnet50
-# from transformers import BertTokenizer, TFBertModel, TFBertForSequenceClassification
-# from models.tfbertforseqclassification import TFBertforflwr
-# from models.mobilebert import TFBertforflwr2
-# import keras
-# from tensorflow import keras
-# from tensorflow.keras import layers
+from models.resnet101 import ResNet101 as resent101
 
 
 def convert_to_tflite(model: str):
@@ -171,20 +166,20 @@ def convert_to_tflite(model: str):
         base.compile(loss="categorical_crossentropy", optimizer="sgd")
         base.save("identity_model", save_format="tf")
 
-
-        head = tf.keras.models.Sequential([
-            tf.keras.Input(shape=(shape[0]*shape[1])),
-            tf.keras.layers.Reshape(shape),
-            tf.keras.applications.resnet.ResNet101(
-                include_top=False,
-                weights=None,
-                input_tensor=None,
-                input_shape=shape,
-                pooling=None,
-            ),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(units=num_class, activation="softmax"),
-        ])
+        head = resent101(input_shape=shape, classes=62)
+        # head = tf.keras.models.Sequential([
+        #     tf.keras.Input(shape=(shape[0]*shape[1])),
+        #     tf.keras.layers.Reshape(shape),
+        #     tf.keras.applications.resnet.ResNet101(
+        #         include_top=False,
+        #         weights=None,
+        #         input_tensor=None,
+        #         input_shape=shape,
+        #         pooling=None,
+        #     ),
+        #     tf.keras.layers.Flatten(),
+        #     tf.keras.layers.Dense(units=num_class, activation="softmax"),
+        # ])
 
         print(head.summary())
         head.compile(loss="categorical_crossentropy", optimizer="sgd")

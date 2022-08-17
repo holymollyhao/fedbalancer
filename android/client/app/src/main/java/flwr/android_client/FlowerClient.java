@@ -240,7 +240,7 @@ public class FlowerClient {
         }
     }
 
-    public void loadData(int device_id, String path) {
+    public void loadData(int device_id, String path, String dataset) {
         try {
 
             File file = new File(path, "data/user" + (device_id - 1) + "_train.txt");
@@ -250,8 +250,12 @@ public class FlowerClient {
 
             String line;
             int i = 0;
+
             while ((line = reader.readLine()) != null) {
                 i++;
+                if(i>=100 && dataset.contains("femnist128")){
+                    break;
+                }
                 Log.e(TAG, i+"th training sample loaded");
                 addSample_UCIHAR(path, "data/" + line, true, i - 1);
             }
