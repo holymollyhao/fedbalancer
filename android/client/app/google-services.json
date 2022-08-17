@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "430033199891",
+    "project_id": "realworldfl",
+    "storage_bucket": "realworldfl.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:430033199891:android:0ed5886372d77fc473b0e6",
+        "android_client_info": {
+          "package_name": "nmsl.rwfl"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "430033199891-afb4gr51ol9pb7c4oufhu9u03rm66d2i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDE5eflTDJe0D4_pYp5p2p_2csmT0A32qM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "430033199891-afb4gr51ol9pb7c4oufhu9u03rm66d2i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

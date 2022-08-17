@@ -1,22 +1,16 @@
-package flwr.android_client;
+package nmsl.rwfl;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
-import android.app.Notification;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.icu.text.SimpleDateFormat;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Handler;
@@ -35,28 +29,32 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import flwr.android_client.ClientMessage;
+import flwr.android_client.FlowerServiceGrpc;
+import flwr.android_client.Parameters;
+import flwr.android_client.Scalar;
+import flwr.android_client.ServerMessage;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
-import  flwr.android_client.FlowerServiceGrpc.FlowerServiceBlockingStub;
-import  flwr.android_client.FlowerServiceGrpc.FlowerServiceStub;
+import flwr.android_client.FlowerServiceGrpc.FlowerServiceBlockingStub;
+import flwr.android_client.FlowerServiceGrpc.FlowerServiceStub;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.HttpURLConnection;
@@ -68,14 +66,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
+    private EditText ip;
+    private EditText port;
     private EditText numOfEpoch;
     private EditText numOfThread;
     private String latency_sampling_port;
@@ -86,7 +83,6 @@ public class MainActivity extends AppCompatActivity {
     private Button killThreadButton;
     private Button loadDataButton;
     private Button connectButton;
-    private Button connectSampleLatencyButton;
     private Button trainButton;
     private Button initConfigButton;
     private Button logDataButton;
@@ -97,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
     private Spinner dataset_spinner;
 
     private ManagedChannel channel;
-    public FlowerClient fc;
+    // public FlowerClient fc;
     private static String TAG = "Flower";
     public String dataset;
 
@@ -131,11 +127,16 @@ public class MainActivity extends AppCompatActivity {
         resultText.setMovementMethod(new ScrollingMovementMethod());
         device_id = (EditText) findViewById(R.id.device_id_edit_text);
 
+        ip = (EditText) findViewById(R.id.serverIP);
+        port = (EditText) findViewById(R.id.serverPort);
+
         numOfEpoch = (EditText) findViewById(R.id.num_of_epoch);
         numOfThread = (EditText) findViewById(R.id.num_of_threads);
 
         initConfigButton = (Button) findViewById(R.id.initialize_config);
         loadDataButton = (Button) findViewById(R.id.load_data);
+        connectButton = (Button) findViewById(R.id.connect);
+
         trainButton = (Button) findViewById(R.id.start_training);
         runThreadButton = (Button) findViewById(R.id.run_thread);
         killThreadButton = (Button) findViewById(R.id.kill_thread);
@@ -155,7 +156,21 @@ public class MainActivity extends AppCompatActivity {
         Log.e(TAG, Build.MODEL);
         Util.killBackgroundProcess(this);
 
-        // ForegroundService.startService(this);
+        FirebaseMessaging.getInstance().subscribeToTopic("latency_measurement")
+                .addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        String msg = "Subscribed";
+                        if (!task.isSuccessful()) {
+                            msg = "Subscribe failed";
+                        }
+                        Log.d(TAG, msg);
+                        Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+        ForegroundService.startService(this);
+
     }
 
     @Override
@@ -359,7 +374,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void loadData(View view){
-        fc = new FlowerClient(this, dataset);
+        FlowerClient.getInstance().setContextAndDataset(this, dataset);
         if (TextUtils.isEmpty(device_id.getText().toString())) {
             Toast.makeText(this, "Please enter a client partition ID between 1 and 21 (inclusive)", Toast.LENGTH_LONG).show();
         }
@@ -380,7 +395,7 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     String datapath = getFilesDir().getPath();
-                    fc.loadData(Integer.parseInt(device_id.getText().toString()), datapath);
+                    FlowerClient.getInstance().loadData(Integer.parseInt(device_id.getText().toString()), datapath);
 
                     // log results
                     Log.e(TAG, "Currently number of samples loaded is : " + FedBalancerSingleton.getSamplesCount());
@@ -389,6 +404,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // set button availability accordingly
                     loadDataButton.setEnabled(false);
+                    connectButton.setEnabled(true);
                     trainButton.setEnabled(true);
                 }
             }, 1000);
@@ -408,6 +424,25 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
+    public void connect(View view) {
+        String host = ip.getText().toString();
+        String portStr = port.getText().toString();
+
+        if (TextUtils.isEmpty(host) || TextUtils.isEmpty(portStr) || !Patterns.IP_ADDRESS.matcher(host).matches()) {
+            Toast.makeText(this, "Please enter the correct IP and" +
+                    "" +
+                    " port of the FL server", Toast.LENGTH_LONG).show();
+        }
+        else {
+            int port = TextUtils.isEmpty(portStr) ? 0 : Integer.valueOf(portStr);
+            channel = ManagedChannelBuilder.forAddress(host, port).maxInboundMessageSize(50 * 1024 * 1024).usePlaintext().build();
+            hideKeyboard(this);
+            connectButton.setEnabled(false);
+            setResultText("Channel object created. Ready to train!");
+        }
+    }
+
 
     public void startTraining(View view){
         new TrainAsyncTask(this).execute();
@@ -435,7 +470,7 @@ public class MainActivity extends AppCompatActivity {
             }
             List<Integer> res = new ArrayList<Integer>();
 
-            fc.fit(fc.getWeights(), num_of_epoch, res);
+            FlowerClient.getInstance().fit(FlowerClient.getInstance().getWeights(), num_of_epoch, res);
             return null;
         }
     }
@@ -715,7 +750,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.e(TAG, "Handling GetParameters");
                     activity.setResultText("Handling GetParameters message from the server.");
 
-                    weights = activity.fc.getWeights();
+                    weights = FlowerClient.getInstance().getWeights();
                     c = weightsAsProto(weights);
                 } else if (message.hasDeviceInfo()) {
                     Log.e(TAG, "Handling DeviceInfo");
@@ -805,16 +840,16 @@ public class MainActivity extends AppCompatActivity {
                         if (FedBalancerSingleton.getInstance().getIsFirstRound()) {
                             FedBalancerSingleton.getInstance().setWholeDataLossList(sampleloss);
                             FedBalancerSingleton.getInstance().setIsFirstRound(false);
-                            activity.fc.sampleInferenceLatency(newWeights);
+                            FlowerClient.getInstance().sampleInferenceLatency(newWeights);
                             isThisFirstRound = true;
                         }
 
                         if (fedbalancer) {
-                            Pair<List<Integer>, List<Float>> ssresult = activity.fc.fbSampleSelection(loss_threshold, deadline, local_epochs, train_time_per_batch, fb_p);
+                            Pair<List<Integer>, List<Float>> ssresult = FlowerClient.getInstance().fbSampleSelection(loss_threshold, deadline, local_epochs, train_time_per_batch, fb_p);
                             sampleIndexToTrain = ssresult.first;
                             sortedLoss = ssresult.second;
                         } else if (FedBalancerSingleton.getInstance().getIsBigClient() && ss_baseline) {
-                            sampleIndexToTrain = activity.fc.baselineSampleSelection();
+                            sampleIndexToTrain = FlowerClient.getInstance().baselineSampleSelection();
 
                         }
                     }
@@ -845,10 +880,10 @@ public class MainActivity extends AppCompatActivity {
                             ne = 1;
                         }
 
-                        slrv = activity.fc.fit(newWeights, ne, sampleIndexToTrain);
+                        slrv = FlowerClient.getInstance().fit(newWeights, ne, sampleIndexToTrain);
                     }
                     else {
-                        slrv = activity.fc.fit(newWeights, local_epochs, sampleIndexToTrain);
+                        slrv = FlowerClient.getInstance().fit(newWeights, local_epochs, sampleIndexToTrain);
                     }
 
                     FedBalancerSingleton.getInstance().addTrainEpochAndBatchLatencyHistory(Pair.create(slrv.getTrain_time_per_epoch(), slrv.getTrain_time_per_batch()));
@@ -881,7 +916,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
-                    weights = activity.fc.getWeights();
+                    weights = FlowerClient.getInstance().getWeights();
 
                     c = fitResAsProto(weights, slrv.getSize_training(), current_round_loss_min, current_round_loss_max, loss_square_summ, overthreshold_loss_count, loss_summ, loss_count, slrv.getTrain_time_per_epoch(), slrv.getTrain_time_per_batch(), slrv.getTrain_time_per_epoch_list(), slrv.getTrain_time_per_batch_list());
                 }  else if (message.hasInitializeConfigIns()) { // TODO: initialize config implementation

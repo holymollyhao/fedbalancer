@@ -1,11 +1,7 @@
-package flwr.android_client;
+package nmsl.rwfl;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.os.ConditionVariable;
-import android.os.Environment;
 import android.util.Log;
 import android.util.Pair;
 
@@ -13,12 +9,10 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
-import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
@@ -26,13 +20,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
 
 public class FlowerClient {
+
+    private static FlowerClient fc = new FlowerClient();
 
     private TransferLearningModelWrapper tlModel;
     private static final int LOWER_BYTE_MASK = 0xFF;
@@ -43,9 +35,21 @@ public class FlowerClient {
     private int local_epochs = 1;
     private String dataset;
 
-    public FlowerClient(Context context, String dataset) {
+//    public FlowerClient(Context context, String dataset) {
+//        this.tlModel = new TransferLearningModelWrapper(context, dataset);
+//        this.context = context;
+//    }
+
+    public FlowerClient() {
+    }
+
+    public void setContextAndDataset(Context context, String dataset) {
         this.tlModel = new TransferLearningModelWrapper(context, dataset);
         this.context = context;
+    }
+
+    public static FlowerClient getInstance() {
+        return fc;
     }
 
     public ByteBuffer[] getWeights() {

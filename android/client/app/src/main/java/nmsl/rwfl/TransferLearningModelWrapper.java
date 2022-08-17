@@ -1,18 +1,14 @@
-package flwr.android_client;
+package nmsl.rwfl;
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.ConditionVariable;
-import android.os.Environment;
 import android.util.Pair;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
