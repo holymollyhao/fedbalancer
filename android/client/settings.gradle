@@ -1,0 +1,3 @@
+include ':app', ':transfer_api', ':httpcore'
+
+project(":httpcore").projectDir = new File("libs/httpcore.jar")
